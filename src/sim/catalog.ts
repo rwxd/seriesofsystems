@@ -287,6 +287,7 @@ export const COMPONENT_SPECS: Record<ComponentKind, ComponentSpec> = {
     baseCostPerMonth: 15,
     perRpsCost: 0,
     defaults: {
+      algorithm: 'round-robin',
       connectTimeoutMs: 500,
       readTimeoutMs: 10000,
       retries: 0,
@@ -296,6 +297,17 @@ export const COMPONENT_SPECS: Record<ComponentKind, ComponentSpec> = {
       buffering: true,
     },
     fields: [
+      {
+        key: 'algorithm',
+        label: 'Upstream balancing',
+        type: 'select',
+        section: 'Balancing',
+        options: [
+          { value: 'round-robin', label: 'Round robin' },
+          { value: 'least-conn', label: 'Least connections' },
+        ],
+        help: 'Round robin treats every backend equally, even the slow one. Least connections notices the queue.',
+      },
       {
         key: 'connectTimeoutMs',
         label: 'Connect timeout',
@@ -434,6 +446,30 @@ export const COMPONENT_SPECS: Record<ComponentKind, ComponentSpec> = {
           { value: 10000, label: '10 seconds' },
         ],
         help: 'The app gives up after this long. Clients may retry, which may make things worse.',
+      },
+      {
+        key: 'retries',
+        label: 'Upstream retries',
+        type: 'select',
+        section: 'Retries',
+        options: [
+          { value: 0, label: 'None' },
+          { value: 1, label: '1 retry' },
+          { value: 2, label: '2 retries' },
+          { value: 3, label: '3 retries' },
+        ],
+        help: 'Retries can paper over a blip or turn a small failure into a retry storm.',
+      },
+      {
+        key: 'retryBudgetPct',
+        label: 'Retry budget',
+        type: 'number',
+        section: 'Retries',
+        min: 0,
+        max: 50,
+        step: 5,
+        unit: '%',
+        help: 'Cap retries as a share of traffic. Zero disables the budget.',
       },
     ],
     costPerMonth: (node) => {

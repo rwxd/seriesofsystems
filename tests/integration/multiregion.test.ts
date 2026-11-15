@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { getLevel } from '@/content/levels';
 import { createLink, createNode } from '@/game/topology';
 import { createSimulation } from '@/sim/engine';
-import type { Scenario, SimSnapshot, Topology } from '@/sim/types';
+import type { NodeConfig, Scenario, SimSnapshot, Topology } from '@/sim/types';
+
+function tune(topology: Topology, id: string, patch: NodeConfig): void {
+  const node = topology.nodes.find((candidate) => candidate.id === id);
+  if (!node) throw new Error(`missing ${id}`);
+  node.config = { ...node.config, ...patch };
+}
 
 function simulate(level: Scenario, topology: Topology): SimSnapshot {
   const sim = createSimulation(level, topology);
@@ -39,6 +45,23 @@ function withEuWest(level: Scenario): Topology {
   }
   return topology;
 }
+
+describe('level 6: retries and slow backends', () => {
+  const level = getLevel('retry-harder')!;
+
+  it('fails when round-robin keeps feeding the slow backend', () => {
+    const snapshot = simulate(level, structuredClone(level.initialTopology));
+    expect(snapshot.errorSeconds).toBeGreaterThan(25);
+  });
+
+  it('survives after sending traffic away from the slow backend', () => {
+    const topology = structuredClone(level.initialTopology);
+    tune(topology, 'nginx', { algorithm: 'least-conn' });
+    const snapshot = simulate(level, topology);
+    expect(snapshot.errorSeconds).toBeLessThanOrEqual(25);
+    expect(snapshot.p95).toBeLessThanOrEqual(400);
+  });
+});
 
 describe('level 7: multi-region', () => {
   const level = getLevel('cloudy-with-a-chance-of-outage')!;

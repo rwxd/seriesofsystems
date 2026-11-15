@@ -974,16 +974,42 @@ class SimulationEngine implements Simulation {
   }
 
   private routeProxy(rt: RuntimeNode, request: SimRequest): void {
-    const next = rt.out[0];
-    if (!next) {
-      this.completeSuccess(request);
+    const candidates = rt.out
+      .map((id) => this.runtime.get(id))
+      .filter((target): target is RuntimeNode => Boolean(target))
+      .filter((target) => this.isNodeUp(target) && !target.draining);
+
+    if (candidates.length === 0) {
+      this.failAt(rt, request, 503, 'no healthy upstream');
       return;
     }
+
+    const algorithm = cfgString(rt.node, 'algorithm', 'round-robin');
+    let next: RuntimeNode;
+    if (algorithm === 'least-conn') {
+      const start = (rt.roundRobin + 1) % candidates.length;
+      let best = candidates[start];
+      let bestLoad = best.inFlight + best.queue.size;
+      for (let offset = 1; offset < candidates.length; offset += 1) {
+        const candidate = candidates[(start + offset) % candidates.length];
+        const load = candidate.inFlight + candidate.queue.size;
+        if (load < bestLoad) {
+          bestLoad = load;
+          best = candidate;
+        }
+      }
+      rt.roundRobin = candidates.indexOf(best);
+      next = best;
+    } else {
+      rt.roundRobin = (rt.roundRobin + 1) % candidates.length;
+      next = candidates[rt.roundRobin];
+    }
+
     const readTimeout = cfgNumber(rt.node, 'readTimeoutMs', 10000);
     if (readTimeout > 0) {
       request.deadline = Math.min(request.deadline, this.currentTime + readTimeout / 1000);
     }
-    this.forward(rt, request, next);
+    this.forward(rt, request, next.node.id);
   }
 
   private routeCompute(rt: RuntimeNode, request: SimRequest): void {
@@ -2014,7 +2040,7 @@ class SimulationEngine implements Simulation {
 
   private effectiveLatencyMs(rt: RuntimeNode): number {
     let latency = rt.spec.latencyMs(rt.node, this.world);
-    if (rt.slow > 0) latency *= 3;
+    if (rt.slow > 0) latency *= 20;
     if (rt.db && this.stampedePressure > 0) latency *= 8;
     return Math.max(0.1, latency);
   }
