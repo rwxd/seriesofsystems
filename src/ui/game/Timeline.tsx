@@ -6,9 +6,11 @@ import { fmtClock, liveObjectives } from '@/ui/lib/format';
 
 export function Timeline({ snapshot }: { snapshot: SimSnapshot | null }) {
   const scenario = useGame((state) => state.scenario);
+  const phase = useGame((state) => state.phase);
   const events = useGame((state) => state.events);
   const dashboardOpen = useGame((state) => state.ui.dashboardOpen);
   const togglePanel = useGame((state) => state.togglePanel);
+  const endRun = useGame((state) => state.endRun);
 
   if (!scenario) return null;
 
@@ -97,6 +99,17 @@ export function Timeline({ snapshot }: { snapshot: SimSnapshot | null }) {
       </div>
 
       <div className="timeline__actions">
+        {scenario.sandbox && (phase === 'running' || phase === 'paused') && (
+          <button
+            type="button"
+            className="expand-btn"
+            onClick={() => endRun()}
+            title="End the sandbox shift and generate a postmortem"
+          >
+            <Icon name="check" size={12} />
+            End shift
+          </button>
+        )}
         <button
           type="button"
           className="expand-btn"

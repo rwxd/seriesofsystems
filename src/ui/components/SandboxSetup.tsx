@@ -31,8 +31,8 @@ export function SandboxSetup() {
             variant="primary"
             icon="play"
             onClick={() => {
-              openSandbox(difficulty);
               close();
+              openSandbox(difficulty);
             }}
           >
             Start sandbox

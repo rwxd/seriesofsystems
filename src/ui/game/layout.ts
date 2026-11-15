@@ -216,9 +216,14 @@ export function autoPlacement(
 ): AutoPlacement {
   if (scope === 'global') {
     const bounds = sceneBounds(topology, computeContainers(topology, world));
-    const anchor = bounds
-      ? { x: bounds.x, y: Math.max(40, bounds.y - NODE_H - 56) }
-      : { x: 80, y: 60 };
+    const globals = topology.nodes.filter((node) => node.kind === 'dns' || node.kind === 'cdn');
+    const topY = globals.length
+      ? Math.min(...globals.map((node) => node.y))
+      : (bounds?.y ?? 60);
+    const anchor = {
+      x: bounds?.x ?? 80,
+      y: topY - NODE_H - 20,
+    };
     const spot = findSpot(topology, anchor);
     return { placement: {}, ...spot };
   }
@@ -239,8 +244,12 @@ export function autoPlacement(
   );
 
   if (scope === 'regional') {
+    // Tuck regional components inside the region box, below the zonal rows.
     const anchor = regionContainer
-      ? { x: regionContainer.x, y: regionContainer.y + regionContainer.h + 26 }
+      ? {
+          x: regionContainer.x + 26,
+          y: Math.max(regionContainer.y + 60, regionContainer.y + regionContainer.h - NODE_H - 26),
+        }
       : { x: (selectedRegion.x ?? 80) + 40, y: (selectedRegion.y ?? 120) + 60 };
     const spot = findSpot(topology, anchor);
     return {
@@ -301,12 +310,4 @@ export function placementLabel(node: TopologyNode, world: World): string {
   if (!node.zoneId) return region?.name ?? node.regionId;
   const zone = region?.zones.find((candidate) => candidate.id === node.zoneId);
   return `${region?.shortName ?? node.regionId} · ${zone?.shortName ?? node.zoneId}`;
-}
-
-/** Smallest region/zone options for the inspector selects. */
-export function placementOptions(world: World) {
-  return world.regions.map((region) => ({
-    region,
-    zones: region.zones,
-  }));
 }

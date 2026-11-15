@@ -1624,8 +1624,11 @@
 
 .game-alerts {
   position: absolute;
-  top: calc(var(--gutter) + 8px);
-  left: 50%;
+  top: calc(var(--gutter) + 52px);
+  left: calc(
+    var(--palette-w) + 2 * var(--gutter) +
+      (100% - var(--palette-w) - var(--inspector-w) - 4 * var(--gutter)) / 2
+  );
   transform: translateX(-50%);
   z-index: 24;
   display: grid;

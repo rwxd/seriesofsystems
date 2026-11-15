@@ -242,11 +242,12 @@ interface TopIncident {
   impact: number;
 }
 
-function pickTopIncident(scenario: Scenario, events: GameEvent[]): TopIncident | undefined {
+function pickTopIncident(scenario: Scenario, events: GameEvent[], elapsed: number): TopIncident | undefined {
   const dataLossTimes = events.filter((event) => event.kind === 'data-loss').map((event) => event.at);
 
   let best: TopIncident | undefined;
   for (const incident of scenario.incidents) {
+    if (incident.at > elapsed) continue;
     const duration = incident.duration ?? 60;
     const nearbyLosses = dataLossTimes.filter(
       (at) => at >= incident.at - 5 && at <= incident.at + duration + 30,
@@ -300,7 +301,9 @@ function collectCauses(
   top: TopIncident | undefined,
 ): Cause[] {
   const causes: Cause[] = [];
-  const incidentKinds = new Set(scenario.incidents.map((incident) => incident.kind));
+  const incidentKinds = new Set(
+    scenario.incidents.filter((incident) => incident.at <= snapshot.time).map((incident) => incident.kind),
+  );
   const peak = peakRps(snapshot);
   const have = (kind: IncidentKind) => incidentKinds.has(kind);
 
@@ -316,7 +319,7 @@ function collectCauses(
   // 1. Compute concentrated in the zone that failed. ---------------------
   if (have('zone-down')) {
     const failedZones = scenario.incidents
-      .filter((incident) => incident.kind === 'zone-down')
+      .filter((incident) => incident.kind === 'zone-down' && incident.at <= snapshot.time)
       .map((incident) => incident.zoneId)
       .filter((zoneId): zoneId is string => Boolean(zoneId));
     for (const zoneId of failedZones) {
@@ -502,7 +505,9 @@ function buildRootCause(
   topology: Topology,
   top: TopIncident | undefined,
 ): string {
-  const incidentKinds = new Set(scenario.incidents.map((incident) => incident.kind));
+  const incidentKinds = new Set(
+    scenario.incidents.filter((incident) => incident.at <= snapshot.time).map((incident) => incident.kind),
+  );
   const vms = byKind(topology, 'vm');
   const k8s = byKind(topology, 'k8s');
   const dbs = byKind(topology, 'db');
@@ -512,7 +517,9 @@ function buildRootCause(
 
   // Order matters: the most structural explanation wins.
   if (incidentKinds.has('zone-down') && vms.length > 0) {
-    const failedZone = scenario.incidents.find((incident) => incident.kind === 'zone-down')?.zoneId;
+    const failedZone = scenario.incidents.find(
+      (incident) => incident.kind === 'zone-down' && incident.at <= snapshot.time,
+    )?.zoneId;
     const outside = vms.filter((node) => node.zoneId !== failedZone);
     if (outside.length === 0) {
       return `A zone failure took ${vms.map((node) => node.name).join(', ')} offline because every VM in the topology shared ${zoneLabel(
@@ -663,9 +670,12 @@ function buildHeadline(
   top: TopIncident | undefined,
 ): string {
   const availability = formatAvailability(snapshot.availability);
-  const duration = formatSeconds(snapshot.duration || scenario.duration);
+  const duration = formatSeconds(snapshot.time || scenario.duration);
   const missed = results.filter((result) => !result.met).map((result) => result.label.toLowerCase());
 
+  if (scenario.sandbox && (snapshot.time < 300 || snapshot.requests < 100)) {
+    return 'The shift ended before the first real traffic curve. No stars for a rehearsal.';
+  }
   if (score.stars === 0) {
     if (snapshot.dataLossEvents > 0) {
       return `You lost writes and uptime; ${scenario.customer} kept the receipts.`;
@@ -694,7 +704,7 @@ function buildSummary(
   results: ObjectiveResult[],
   top: TopIncident | undefined,
 ): string {
-  const duration = Math.round(snapshot.duration || scenario.duration);
+  const duration = Math.round(snapshot.time || scenario.duration);
   const requests = Math.round(snapshot.requests);
   const failures = Math.round(snapshot.failures);
   const avgRps = duration > 0 ? requests / duration : snapshot.rps;
@@ -708,6 +718,9 @@ function buildSummary(
       requests > 0 ? failures / requests : 0,
     )}).`,
   );
+  if (scenario.sandbox && (snapshot.time < 300 || requests < 100)) {
+    parts.push('The shift was ended before the traffic curve arrived; sandbox stars require a real run, not a rehearsal.');
+  }
   parts.push(
     `Final availability ${formatAvailability(snapshot.availability)}, p95 ${formatLatency(snapshot.p95)}, cost ${formatCost(
       snapshot.monthlyCost,
@@ -723,7 +736,11 @@ function buildSummary(
   if (score.total === 0) {
     parts.push('No objectives were set, so survival is the metric.');
   } else if (score.stars === 0) {
-    parts.push(`${score.metCount}/${score.total} objectives met. ${scenario.failureText}`);
+    if (scenario.sandbox && (snapshot.time < 300 || requests < 100)) {
+      parts.push('The shift was ended early; run the full hour to earn a score.');
+    } else {
+      parts.push(`${score.metCount}/${score.total} objectives met. ${scenario.failureText}`);
+    }
   } else if (score.stars === 3) {
     parts.push(`All ${score.total} objectives met. ${scenario.successText}`);
   } else if (missed.length > 0) {
@@ -749,13 +766,36 @@ export function buildPostmortem(
   topology: Topology,
 ): Postmortem {
   const results = buildObjectives(scenario.objectives, snapshot);
-  const score = scoreRun(scenario.objectives, results, snapshot);
-  const top = pickTopIncident(scenario, events);
-  const causes = collectCauses(scenario, snapshot, events, topology, top);
+  let score = scoreRun(scenario.objectives, results, snapshot);
+  const abandoned = scenario.sandbox && (snapshot.time < 300 || snapshot.requests < 100);
+  if (abandoned) {
+    results.push({
+      key: 'minShift',
+      label: 'Minimum shift',
+      target: '300s',
+      actual: formatSeconds(snapshot.time),
+      met: false,
+    });
+    score = {
+      ...score,
+      stars: 0,
+      outcome: 'failure',
+      primaryMet: false,
+      allMet: false,
+      total: results.length,
+      metCount: results.filter((result) => result.met).length,
+    };
+  }
+  const top = pickTopIncident(scenario, events, snapshot.time);
+  const causes = abandoned ? [] : collectCauses(scenario, snapshot, events, topology, top);
 
   const factors = causes.map((cause) => cause.factor);
-  const rootCause = buildRootCause(scenario, snapshot, topology, top);
-  const contributingFactors = factors.slice(0, 5);
+  const rootCause = abandoned
+    ? 'The shift ended before traffic arrived. There is no root cause because nothing had time to break.'
+    : buildRootCause(scenario, snapshot, topology, top);
+  const contributingFactors = abandoned
+    ? ['No traffic reached the system; this run was a rehearsal, not a shift.']
+    : factors.slice(0, 5);
   if (contributingFactors.length === 0) {
     contributingFactors.push(
       `${Math.round(snapshot.failures)} failed requests with no obvious single cause; the system degraded for a while and then stopped.`,
@@ -763,7 +803,10 @@ export function buildPostmortem(
   }
 
   const actionItems: string[] = [];
-  if (score.outcome === 'success' && score.stars >= 2 && snapshot.dataLossEvents === 0) {
+  if (abandoned) {
+    actionItems.push('Run a full sandbox shift and let the traffic curve arrive before reading the score.');
+    actionItems.push('Use the difficulty setting to choose how much chaos the shift should contain.');
+  } else if (score.outcome === 'success' && score.stars >= 2 && snapshot.dataLossEvents === 0) {
     const compute = topology.nodes.filter((node) => node.kind === 'vm' || node.kind === 'k8s');
     const db = topology.nodes.find((node) => node.kind === 'db');
     const cache = topology.nodes.find((node) => node.kind === 'cache');
@@ -803,7 +846,7 @@ export function buildPostmortem(
     dataLossEvents: snapshot.dataLossEvents,
     totalRequests: snapshot.requests,
     failedRequests: snapshot.failures,
-    duration: snapshot.duration || scenario.duration,
+    duration: snapshot.time || scenario.duration,
   };
 
   return {
