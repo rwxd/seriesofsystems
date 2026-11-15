@@ -81,6 +81,7 @@ export function nextCampaignLevel(currentId: string | undefined): Scenario | nul
 
 /** "Unlocks after “Two Is One”" — falls back to a generic hint. */
 export function unlockHintFor(kind: ComponentKind): string {
+  if (kind === 'waf') return 'Available in the Zero Day scenario and Sandbox';
   const unlocker = CAMPAIGN_LEVELS.find((level) => level.unlockOnComplete?.includes(kind));
   if (!unlocker) return 'Unlocks later in the campaign';
   return `Unlocks after “${unlocker.title}”`;
@@ -117,7 +118,11 @@ export function sandboxBest(profile: Profile): number {
 }
 
 export function totalStars(profile: Profile): number {
-  return Object.values(profile.stars ?? {}).reduce((sum, value) => sum + (Number(value) || 0), 0);
+  return CAMPAIGN_LEVELS.reduce((sum, level) => sum + (profile.stars[level.id] ?? 0), 0);
+}
+
+export function campaignCompleted(profile: Profile): number {
+  return CAMPAIGN_LEVELS.filter((level) => profile.completed.includes(level.id)).length;
 }
 
 export function levelBudgetLabel(level: Scenario): string {

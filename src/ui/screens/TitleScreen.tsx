@@ -1,7 +1,7 @@
 import { useGame } from '@/game/store';
 import { Btn, StarRow } from '@/ui/components/ui';
 import { LogoLockup, LogoMark } from '@/ui/components/Logo';
-import { totalStars, sandboxBest, CAMPAIGN_LEVELS } from '@/ui/lib/campaign';
+import { campaignCompleted, totalStars, sandboxBest, CAMPAIGN_LEVELS } from '@/ui/lib/campaign';
 import { fmtNum } from '@/ui/lib/format';
 import { Icon } from '@/ui/components/Icon';
 
@@ -11,7 +11,7 @@ export function TitleScreen() {
   const togglePanel = useGame((state) => state.togglePanel);
 
   const stars = totalStars(profile);
-  const completed = profile.completed.length;
+  const completed = campaignCompleted(profile);
   const best = sandboxBest(profile);
   const hasProgress = completed > 0 || stars > 0 || best > 0;
 
@@ -83,6 +83,14 @@ export function TitleScreen() {
               <Btn variant="primary" size="lg" icon="play" onClick={() => go('campaign')}>
                 {hasProgress ? 'Continue campaign' : 'Play campaign'}
               </Btn>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
+                <Btn icon="series" onClick={() => go('career')}>
+                  Career
+                </Btn>
+                <Btn icon="trace" onClick={() => go('scenarios')}>
+                  Scenarios
+                </Btn>
+              </div>
               <Btn size="lg" icon="bolt" onClick={() => togglePanel('sandboxSetupOpen')}>
                 Sandbox
               </Btn>

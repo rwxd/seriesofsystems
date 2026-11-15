@@ -1,5 +1,6 @@
 import { useGame } from '@/game/store';
 import type { GameEvent } from '@/sim/types';
+import { nextCareerStage } from '@/content/career';
 import { Btn, Modal, StarRow } from '@/ui/components/ui';
 import { Icon } from '@/ui/components/Icon';
 import { fmtAvail, fmtClock, fmtMoney, fmtMs, fmtNum, shortName } from '@/ui/lib/format';
@@ -9,14 +10,32 @@ export function PostmortemModal() {
   const open = useGame((state) => state.ui.postmortemOpen);
   const postmortem = useGame((state) => state.postmortem);
   const scenario = useGame((state) => state.scenario);
+  const levelId = useGame((state) => state.levelId);
+  const runMode = useGame((state) => state.runMode);
   const togglePanel = useGame((state) => state.togglePanel);
   const retry = useGame((state) => state.retry);
   const nextLevel = useGame((state) => state.nextLevel);
-  const closeGame = useGame((state) => state.closeGame);
+  const go = useGame((state) => state.go);
 
   if (!postmortem || !scenario) return null;
   const success = postmortem.outcome === 'success';
-  const next = nextCampaignLevel(scenario.sandbox ? undefined : postmortem.levelId);
+  const campaignNext = runMode === 'campaign' ? nextCampaignLevel(postmortem.levelId) : null;
+  const careerNext = runMode === 'career' && levelId ? nextCareerStage(levelId) : undefined;
+  const nextExists =
+    success &&
+    (runMode === 'scenario' || (runMode === 'career' ? Boolean(careerNext) : Boolean(campaignNext)));
+  const nextLabel =
+    runMode === 'scenario'
+      ? 'Scenarios'
+      : runMode === 'career'
+        ? careerNext
+          ? 'Next stage'
+          : 'Career map'
+        : campaignNext
+          ? 'Next shift'
+          : 'Campaign map';
+  const backLabel = runMode === 'career' ? 'Career map' : runMode === 'scenario' ? 'Scenarios' : 'Campaign map';
+  const backScreen = runMode === 'career' ? 'career' : runMode === 'scenario' ? 'scenarios' : 'campaign';
 
   return (
     <Modal
@@ -29,8 +48,8 @@ export function PostmortemModal() {
       size="xl"
       footer={
         <>
-          <Btn variant="ghost" icon="arrow-left" onClick={() => closeGame()}>
-            Campaign map
+          <Btn variant="ghost" icon="arrow-left" onClick={() => go(backScreen)}>
+            {backLabel}
           </Btn>
           <span className="spacer" />
           <Btn icon="reset" onClick={() => retry()}>
@@ -38,10 +57,10 @@ export function PostmortemModal() {
           </Btn>
           <Btn
             variant="primary"
-            icon={next && !scenario.sandbox ? 'arrow-right' : 'arrow-left'}
+            icon={nextExists ? 'arrow-right' : 'arrow-left'}
             onClick={() => nextLevel()}
           >
-            {next && !scenario.sandbox ? 'Next shift' : 'Campaign map'}
+            {nextExists ? nextLabel : backLabel}
           </Btn>
         </>
       }

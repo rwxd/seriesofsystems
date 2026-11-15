@@ -166,6 +166,24 @@ export function HowToContent({ compact = false }: { compact?: boolean }) {
         </span>
       </div>
 
+      <div className="howto__callout">
+        <Icon name="gauge" size={20} />
+        <span>
+          <strong>Monitoring is part of the game.</strong> Open Metrics (<kbd>D</kbd>), then use the
+          Nodes, Traces, Logs, Alerts, and Security tabs. Tune alert rules so you hear about a problem
+          before the customer does.
+        </span>
+      </div>
+
+      <div className="howto__callout">
+        <Icon name="waf" size={20} />
+        <span>
+          <strong>Security is configuration.</strong> A WAF, TLS renewal, private databases, encryption,
+          backups, automatic patching, and secret management all live in the inspector. The security
+          score tells you which one is currently the weakest.
+        </span>
+      </div>
+
       {!compact && (
         <div className="howto__foot">
           <Btn variant="primary" icon="play" onClick={() => useGame.getState().go('campaign')}>

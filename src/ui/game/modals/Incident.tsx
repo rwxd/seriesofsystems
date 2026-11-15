@@ -38,6 +38,9 @@ const RECOMMENDED: Record<IncidentKind, RunbookKind[]> = {
   'control-plane-outage': ['restart', 'drain'],
   'noisy-neighbor': ['drain', 'scale-out'],
   ddos: ['rate-limit', 'scale-out'],
+  'credential-leak': ['rollback', 'rate-limit', 'restart'],
+  vulnerability: ['rollback', 'restart', 'drain'],
+  'brute-force': ['rate-limit', 'drain', 'scale-out'],
 };
 
 export function IncidentModal() {

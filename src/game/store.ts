@@ -20,6 +20,14 @@ import type {
 import { buildPostmortem } from '@/content/postmortem';
 import { createSandbox } from '@/content/sandbox';
 import { CAMPAIGN_LEVELS, getLevel, nextLevel as findNextLevel } from '@/content/levels';
+import {
+  CAREER_STAGES,
+  getCareerStage,
+  isCareerUnlocked,
+  nextCareerStage,
+} from '@/content/career';
+import { SCENARIOS, getScenario } from '@/content/scenarios';
+import { computeSecurityScore } from '@/sim/security';
 import { parseTopologyYaml, topologyToYaml } from '@/content/iac';
 import { clearProfile, defaultProfile, loadProfile, saveProfile } from './save';
 import {
@@ -33,9 +41,31 @@ import {
   type ValidationIssue,
 } from './topology';
 
-export type Screen = 'title' | 'campaign' | 'game' | 'howto' | 'settings';
+export type Screen = 'title' | 'campaign' | 'career' | 'scenarios' | 'game' | 'howto' | 'settings';
 export type Phase = 'briefing' | 'running' | 'paused' | 'ended';
 export type InspectorTab = 'config' | 'yaml';
+export type RunMode = 'campaign' | 'career' | 'scenario' | 'sandbox';
+
+export type AlertMetric = 'errorRate' | 'p95' | 'maxQueue' | 'availability' | 'security';
+
+export interface AlertRule {
+  id: string;
+  label: string;
+  metric: AlertMetric;
+  operator: '>' | '<';
+  threshold: number;
+  enabled: boolean;
+}
+
+export interface FiredAlert {
+  id: string;
+  ruleId: string;
+  label: string;
+  at: number;
+  value: number;
+  severity: 'warning' | 'critical';
+  acknowledged: boolean;
+}
 
 export type PanelKey =
   | 'dashboardOpen'
@@ -107,6 +137,7 @@ export interface GameStore {
   profile: Profile;
   scenario: Scenario | null;
   levelId: string | null;
+  runMode: RunMode;
   phase: Phase;
   speed: number;
   draft: Topology | null;
@@ -122,11 +153,16 @@ export interface GameStore {
   linkFrom: string | null;
   issues: ValidationIssue[];
   unreadAlerts: number;
+  alertRules: AlertRule[];
+  firedAlerts: FiredAlert[];
+  firingAlertIds: string[];
   ui: UiState;
   toast: Toast | null;
 
   go: (screen: Screen) => void;
   openLevel: (id: string) => void;
+  openCareerStage: (id: string) => void;
+  openScenario: (id: string) => void;
   openSandbox: (difficulty?: 'relaxed' | 'normal' | 'chaos') => void;
   closeGame: () => void;
   startRun: () => void;
@@ -159,6 +195,10 @@ export interface GameStore {
   setYamlText: (text: string) => void;
   applyYaml: () => void;
   runRunbook: (kind: RunbookKind, targetId?: string) => void;
+  updateAlertRule: (id: string, patch: Partial<Omit<AlertRule, 'id'>>) => void;
+  toggleAlertRule: (id: string) => void;
+  acknowledgeAlert: (id: string) => void;
+  clearFiredAlerts: () => void;
 
   advance: (dt: number) => void;
   refreshSnapshot: () => void;
@@ -183,6 +223,53 @@ export function levelStars(profile: Profile, levelId: string): number {
   return profile.stars[levelId] ?? 0;
 }
 
+function defaultAlertRules(): AlertRule[] {
+  return [
+    { id: 'error-rate', label: 'Error rate', metric: 'errorRate', operator: '>', threshold: 1, enabled: true },
+    { id: 'p95', label: 'p95 latency', metric: 'p95', operator: '>', threshold: 250, enabled: true },
+    { id: 'queue', label: 'Any request queue', metric: 'maxQueue', operator: '>', threshold: 0, enabled: true },
+    {
+      id: 'availability',
+      label: 'Availability',
+      metric: 'availability',
+      operator: '<',
+      threshold: 99.9,
+      enabled: true,
+    },
+    { id: 'security', label: 'Security score', metric: 'security', operator: '<', threshold: 25, enabled: true },
+  ];
+}
+
+function alertValue(metric: AlertMetric, snapshot: SimSnapshot, topology: Topology | null): number {
+  switch (metric) {
+    case 'errorRate':
+      return snapshot.errorRate * 100;
+    case 'p95':
+      return snapshot.p95;
+    case 'maxQueue':
+      return Math.max(0, ...Object.values(snapshot.nodes).map((node) => node.queue));
+    case 'availability':
+      return snapshot.availability * 100;
+    case 'security':
+      return topology ? computeSecurityScore(topology) : 0;
+    default:
+      return 0;
+  }
+}
+
+function describeAlert(rule: AlertRule, value: number): string {
+  const suffix =
+    rule.metric === 'errorRate' || rule.metric === 'availability'
+      ? '%'
+      : rule.metric === 'p95'
+        ? 'ms'
+        : rule.metric === 'security'
+          ? '/100'
+          : '';
+  const rounded = rule.metric === 'errorRate' || rule.metric === 'maxQueue' ? Math.round(value) : Math.round(value * 10) / 10;
+  return `${rule.label} is ${rounded}${suffix} (${rule.operator} ${rule.threshold}${suffix})`;
+}
+
 function initialUi(): UiState {
   return {
     dashboardOpen: false,
@@ -199,6 +286,7 @@ function initialUi(): UiState {
 }
 
 let toastSeq = 0;
+let alertSeq = 0;
 let lastSnapshotAt = 0;
 
 export const useGame = create<GameStore>()((set, get) => {
@@ -216,7 +304,12 @@ export const useGame = create<GameStore>()((set, get) => {
     });
   };
 
-  const resetRun = (scenario: Scenario, levelId: string, screen: Screen = 'game'): void => {
+  const resetRun = (
+    scenario: Scenario,
+    levelId: string,
+    runMode: RunMode,
+    screen: Screen = 'game',
+  ): void => {
     const draft = cloneTopology(scenario.initialTopology);
     const issues = validateTopology(draft, scenario.world, {
       requiresDatabase: scenario.requiresDatabase,
@@ -225,6 +318,7 @@ export const useGame = create<GameStore>()((set, get) => {
       screen,
       scenario,
       levelId,
+      runMode,
       phase: 'briefing',
       speed: 1,
       draft,
@@ -240,6 +334,9 @@ export const useGame = create<GameStore>()((set, get) => {
       linkFrom: null,
       issues,
       unreadAlerts: 0,
+      alertRules: defaultAlertRules(),
+      firedAlerts: [],
+      firingAlertIds: [],
       ui: {
         ...initialUi(),
         yamlText: safeYaml(draft, scenario),
@@ -249,11 +346,66 @@ export const useGame = create<GameStore>()((set, get) => {
     lastSnapshotAt = 0;
   };
 
+  const evaluateAlerts = (snapshot: SimSnapshot): void => {
+    const { alertRules, scenario, deployed, draft, firingAlertIds } = get();
+    if (!scenario) return;
+    const topology = deployed ?? draft ?? scenario.initialTopology;
+    const nextFiring: string[] = [];
+    const newAlerts: FiredAlert[] = [];
+
+    for (const rule of alertRules) {
+      if (!rule.enabled) continue;
+      const value = alertValue(rule.metric, snapshot, topology);
+      const firing = rule.operator === '>' ? value > rule.threshold : value < rule.threshold;
+      if (!firing) continue;
+      nextFiring.push(rule.id);
+      if (firingAlertIds.includes(rule.id)) continue;
+
+      const alert: FiredAlert = {
+        id: `${rule.id}-${Math.floor(snapshot.time)}-${++alertSeq}`,
+        ruleId: rule.id,
+        label: rule.label,
+        at: snapshot.time,
+        value,
+        severity: rule.metric === 'availability' || rule.metric === 'security' ? 'critical' : 'warning',
+        acknowledged: false,
+      };
+      newAlerts.push(alert);
+      get().pushEvent({
+        id: `alert-event-${alert.id}`,
+        at: snapshot.time,
+        kind: 'alert',
+        severity: alert.severity,
+        title: `Alert: ${rule.label}`,
+        message: describeAlert(rule, value),
+      });
+    }
+
+    const changed =
+      newAlerts.length > 0 ||
+      nextFiring.length !== firingAlertIds.length ||
+      nextFiring.some((id) => !firingAlertIds.includes(id));
+    if (!changed) return;
+
+    set({
+      firingAlertIds: nextFiring,
+      firedAlerts: newAlerts.length > 0 ? [...newAlerts, ...get().firedAlerts].slice(0, 50) : get().firedAlerts,
+    });
+    for (const alert of newAlerts) {
+      const rule = alertRules.find((candidate) => candidate.id === alert.ruleId);
+      get().notify(
+        rule ? describeAlert(rule, alert.value) : `${alert.label} threshold crossed`,
+        alert.severity === 'critical' ? 'danger' : 'warning',
+      );
+    }
+  };
+
   return {
     screen: 'title',
     profile: loadProfile(),
     scenario: null,
     levelId: null,
+    runMode: 'campaign',
     phase: 'briefing',
     speed: 1,
     draft: null,
@@ -269,6 +421,9 @@ export const useGame = create<GameStore>()((set, get) => {
     linkFrom: null,
     issues: [],
     unreadAlerts: 0,
+    alertRules: defaultAlertRules(),
+    firedAlerts: [],
+    firingAlertIds: [],
     ui: initialUi(),
     toast: null,
 
@@ -284,13 +439,35 @@ export const useGame = create<GameStore>()((set, get) => {
         get().notify('Finish the previous level first. Reliability is a series.', 'error');
         return;
       }
-      resetRun(level, level.id);
+      resetRun(level, level.id, 'campaign');
+    },
+
+    openCareerStage: (id) => {
+      const stage = getCareerStage(id);
+      if (!stage) {
+        get().notify('That career stage does not exist.', 'error');
+        return;
+      }
+      if (!isCareerUnlocked(get().profile, stage.id)) {
+        get().notify('Finish the previous career stage first.', 'error');
+        return;
+      }
+      resetRun(stage, stage.id, 'career');
+    },
+
+    openScenario: (id) => {
+      const scenario = getScenario(id);
+      if (!scenario) {
+        get().notify('That scenario does not exist.', 'error');
+        return;
+      }
+      resetRun(scenario, scenario.id, 'scenario');
     },
 
     openSandbox: (difficulty = 'normal') => {
       const seed = (Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0;
       const scenario = createSandbox(difficulty, seed);
-      resetRun(scenario, scenario.id);
+      resetRun(scenario, scenario.id, 'sandbox');
     },
 
     closeGame: () =>
@@ -298,6 +475,7 @@ export const useGame = create<GameStore>()((set, get) => {
         screen: 'campaign',
         scenario: null,
         levelId: null,
+        runMode: 'campaign',
         sim: null,
         snapshot: null,
         draft: null,
@@ -376,14 +554,14 @@ export const useGame = create<GameStore>()((set, get) => {
     },
 
     endRun: () => {
-      const { sim, scenario, events, deployed, profile, phase, ui } = get();
+      const { sim, scenario, events, deployed, profile, phase, ui, runMode } = get();
       if (!sim || !scenario || !deployed || phase === 'ended') return;
       const snapshot = sim.snapshot();
       const traces = sim.traces();
       const postmortem = buildPostmortem(scenario, snapshot, events, deployed);
       let nextProfile = profile;
       if (postmortem.outcome === 'success') {
-        if (scenario.sandbox) {
+        if (runMode === 'sandbox') {
           const score = Math.round(
             postmortem.metrics.availability * 10000 +
               postmortem.stars * 1000 +
@@ -417,23 +595,41 @@ export const useGame = create<GameStore>()((set, get) => {
     },
 
     retry: () => {
-      const { scenario, levelId } = get();
+      const { scenario, levelId, runMode } = get();
       if (!scenario) return;
-      if (scenario.sandbox) {
-        resetRun(createSandbox(scenario.difficulty ?? 'normal', scenario.seed), scenario.id);
+      if (runMode === 'sandbox') {
+        resetRun(createSandbox(scenario.difficulty ?? 'normal', scenario.seed), scenario.id, 'sandbox');
+        return;
+      }
+      if (runMode === 'career' && levelId) {
+        get().openCareerStage(levelId);
+        return;
+      }
+      if (runMode === 'scenario' && levelId) {
+        get().openScenario(levelId);
         return;
       }
       if (levelId) get().openLevel(levelId);
     },
 
     nextLevel: () => {
-      const { scenario, levelId } = get();
-      if (scenario?.sandbox) {
+      const { scenario, levelId, runMode } = get();
+      if (runMode === 'sandbox') {
         get().go('campaign');
         return;
       }
+      if (runMode === 'career') {
+        const next = levelId ? nextCareerStage(levelId) : undefined;
+        if (next && isCareerUnlocked(get().profile, next.id)) resetRun(next, next.id, 'career');
+        else get().go('career');
+        return;
+      }
+      if (runMode === 'scenario') {
+        get().go('scenarios');
+        return;
+      }
       const next = levelId ? findNextLevel(levelId) : undefined;
-      if (next) resetRun(next, next.id);
+      if (next && isLevelUnlocked(get().profile, next.id)) resetRun(next, next.id, 'campaign');
       else get().go('campaign');
     },
 
@@ -484,7 +680,7 @@ export const useGame = create<GameStore>()((set, get) => {
       const placement = (typeof a === 'object' && a !== null ? a : c) as Placement | undefined;
       const x = (typeof a === 'object' && a !== null ? b : a) as number;
       const y = (typeof a === 'object' && a !== null ? c : b) as number;
-      const fit = fitNodePosition(x, y);
+      const fit = fitNodePosition(x, y, 1200, 700, getSpec(kind).scope === 'global' ? -500 : 40);
       const node = createNode(
         kind,
         defaultPlacement(kind, scenario.world, placement),
@@ -510,10 +706,11 @@ export const useGame = create<GameStore>()((set, get) => {
     moveNode: (id, x, y) => {
       const { draft } = get();
       if (!draft) return;
-      const fit = fitNodePosition(x, y);
-      const nodes = draft.nodes.map((node) =>
-        node.id === id ? { ...node, x: fit.x, y: fit.y } : node,
-      );
+      const nodes = draft.nodes.map((node) => {
+        if (node.id !== id) return node;
+        const fit = fitNodePosition(x, y, 1200, 700, getSpec(node.kind).scope === 'global' ? -500 : 40);
+        return { ...node, x: fit.x, y: fit.y };
+      });
       set({ draft: { ...draft, nodes } });
     },
 
@@ -681,6 +878,30 @@ export const useGame = create<GameStore>()((set, get) => {
       get().refreshSnapshot();
     },
 
+    updateAlertRule: (id, patch) => {
+      set({
+        alertRules: get().alertRules.map((rule) => (rule.id === id ? { ...rule, ...patch } : rule)),
+      });
+    },
+
+    toggleAlertRule: (id) => {
+      set({
+        alertRules: get().alertRules.map((rule) =>
+          rule.id === id ? { ...rule, enabled: !rule.enabled } : rule,
+        ),
+      });
+    },
+
+    acknowledgeAlert: (id) => {
+      set({
+        firedAlerts: get().firedAlerts.map((alert) =>
+          alert.id === id ? { ...alert, acknowledged: true } : alert,
+        ),
+      });
+    },
+
+    clearFiredAlerts: () => set({ firedAlerts: [] }),
+
     advance: (dt) => {
       const state = get();
       if (!state.sim || state.phase !== 'running') return;
@@ -693,7 +914,9 @@ export const useGame = create<GameStore>()((set, get) => {
       // instead of the previous, pre-incident frame.
       if (now - lastSnapshotAt >= 80 || sim.ended || get().phase !== 'running') {
         lastSnapshotAt = now;
-        set({ snapshot: sim.snapshot(), traces: sim.traces() });
+        const snapshot = sim.snapshot();
+        set({ snapshot, traces: sim.traces() });
+        evaluateAlerts(snapshot);
       }
       if (sim.ended) get().endRun();
     },
@@ -701,7 +924,9 @@ export const useGame = create<GameStore>()((set, get) => {
     refreshSnapshot: () => {
       const { sim } = get();
       if (!sim) return;
-      set({ snapshot: sim.snapshot(), traces: sim.traces() });
+      const snapshot = sim.snapshot();
+      set({ snapshot, traces: sim.traces() });
+      evaluateAlerts(snapshot);
       if (sim.ended) get().endRun();
     },
 
@@ -744,6 +969,7 @@ export const useGame = create<GameStore>()((set, get) => {
         screen: 'title',
         scenario: null,
         levelId: null,
+        runMode: 'campaign',
         sim: null,
         snapshot: null,
         draft: null,
@@ -757,6 +983,9 @@ export const useGame = create<GameStore>()((set, get) => {
         deployPending: false,
         issues: [],
         unreadAlerts: 0,
+        alertRules: defaultAlertRules(),
+        firedAlerts: [],
+        firingAlertIds: [],
         ui: initialUi(),
         toast: null,
       });

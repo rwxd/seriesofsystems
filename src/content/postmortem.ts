@@ -475,7 +475,41 @@ function collectCauses(
     });
   }
 
-  // 12. Fallback based on the busiest node. ------------------------------
+  // 12. Security posture. -----------------------------------------------
+  if (have('credential-leak')) {
+    const publicDb = dbs.find((node) => cfgBool(node, 'publicAccess', false));
+    const plainSecrets = vms.find((node) => cfgString(node, 'secrets', 'env') === 'plain');
+    causes.push({
+      factor: publicDb
+        ? `${nodeLabel(publicDb)} is reachable from the public internet; one leaked password becomes a data breach.`
+        : plainSecrets
+          ? `${nodeLabel(plainSecrets)} stores credentials in plain config, which turns a host compromise into a credential compromise.`
+          : 'The credential leak had a narrow blast radius because the data tier and secrets were hardened.',
+      action: 'Close public database access, enable encryption and backups, and move secrets into a manager.',
+    });
+  }
+  if (have('vulnerability')) {
+    const unpatched = [...vms, ...k8s].find(
+      (node) => cfgString(node, 'patching', 'manual') !== 'auto',
+    );
+    causes.push({
+      factor: unpatched
+        ? `${nodeLabel(unpatched)} patches ${cfgString(unpatched, 'patching', 'manual')}; a known exploit stays live until someone rolls the patch.`
+        : 'Automatic patching kept the vulnerability from becoming an outage.',
+      action: 'Enable automatic patching for every compute tier and keep a manual emergency window.',
+    });
+  }
+  if (have('brute-force')) {
+    const waf = byKind(topology, 'waf')[0];
+    causes.push({
+      factor: waf
+        ? `${nodeLabel(waf)} is in ${cfgString(waf, 'mode', 'block')} mode; monitor-only rules forward the attack to the origin.`
+        : 'No WAF and no proxy rate limit meant credential stuffing reached the login endpoint directly.',
+      action: 'Put a WAF in block mode at the edge and set a rate limit near peak traffic.',
+    });
+  }
+
+  // 13. Fallback based on the busiest node. ------------------------------
   if (causes.length === 0) {
     const worst = busiestNode(snapshot, topology);
     if (worst) {
@@ -514,6 +548,7 @@ function buildRootCause(
   const caches = byKind(topology, 'cache');
   const proxies = byKind(topology, 'proxy');
   const lbs = byKind(topology, 'lb');
+  const wafs = byKind(topology, 'waf');
 
   // Order matters: the most structural explanation wins.
   if (incidentKinds.has('zone-down') && vms.length > 0) {
@@ -586,6 +621,41 @@ function buildRootCause(
     const cluster = k8s[0];
     if (cluster && !cfgBool(cluster, 'readinessProbe', false)) {
       return `A bad deploy reached every pod of ${nodeLabel(cluster)} because readinessProbe was off; there was no point at which the rollout looked unhealthy enough to stop.`;
+    }
+  }
+
+  if (incidentKinds.has('credential-leak')) {
+    const publicDb = dbs.find((node) => cfgBool(node, 'publicAccess', false));
+    const plainSecrets = vms.find((node) => cfgString(node, 'secrets', 'env') === 'plain');
+    if (publicDb) {
+      return `${nodeLabel(publicDb)} accepted connections from the internet, which turned one leaked password into a data breach. Public access is a security posture, not a firewall rule.`;
+    }
+    if (plainSecrets) {
+      return `${nodeLabel(plainSecrets)} kept credentials in plain config, where a crash dump or a log line could hand them to anyone reading the host.`;
+    }
+  }
+
+  if (incidentKinds.has('vulnerability')) {
+    const unpatched = [...vms, ...k8s].find(
+      (node) => cfgString(node, 'patching', 'manual') !== 'auto',
+    );
+    if (unpatched) {
+      return `A known vulnerability took down ${nodeLabel(unpatched)} because patching was ${cfgString(
+        unpatched,
+        'patching',
+        'manual',
+      )}. The advisory was public; the patch window was not.`;
+    }
+  }
+
+  if (incidentKinds.has('brute-force')) {
+    const waf = wafs[0];
+    const rateLimited = proxies.some((node) => cfgNumber(node, 'rateLimitRps', 0) > 0);
+    if (!waf && !rateLimited) {
+      return 'Credential stuffing reached the login endpoint because there was no WAF and no proxy rate limit. The only thing between the botnet and the app was hope.';
+    }
+    if (waf && cfgString(waf, 'mode', 'block') !== 'block') {
+      return `${nodeLabel(waf)} was in monitor mode, so the attack was logged and then forwarded to the origin anyway.`;
     }
   }
 

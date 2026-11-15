@@ -54,6 +54,7 @@ export type IconName =
   | 'trace'
   | 'customer'
   | 'shield'
+  | 'waf'
   | 'bolt'
   | 'layers'
   | 'series'
@@ -287,6 +288,12 @@ const PATHS: Record<IconName, ReactNode> = {
     </>
   ),
   shield: <path d="M12 3.4 19.5 6v6c0 4.3-3 7.3-7.5 9-4.5-1.7-7.5-4.7-7.5-9V6z" />,
+  waf: (
+    <>
+      <path d="M12 3.4 19.5 6v6c0 4.3-3 7.3-7.5 9-4.5-1.7-7.5-4.7-7.5-9V6z" />
+      <path d="M8.4 10.2h7.2M8.4 13.2h7.2M10.6 8.4v6.6M13.4 8.4v6.6" />
+    </>
+  ),
   bolt: <path d="M13.2 2.6 5.8 13.4h5.2l-1.4 8 7.6-11h-5.4z" fill="currentColor" stroke="none" />,
   layers: (
     <>
@@ -377,6 +384,7 @@ const PATHS: Record<IconName, ReactNode> = {
 
 const KIND_ICON: Record<ComponentKind, IconName> = {
   dns: 'dns',
+  waf: 'waf',
   cdn: 'cdn',
   lb: 'lb',
   proxy: 'nginx',

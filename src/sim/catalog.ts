@@ -111,6 +111,72 @@ export const COMPONENT_SPECS: Record<ComponentKind, ComponentSpec> = {
     validate: (node, _topology, world) => placementError(node, 'global', world),
   },
 
+  waf: {
+    kind: 'waf',
+    label: 'Web app firewall',
+    shortLabel: 'WAF',
+    category: 'edge',
+    scope: 'global',
+    icon: 'waf',
+    description:
+      'A bouncer for the internet. Blocks the obvious attacks, absorbs floods, and writes a very long log about it.',
+    baseCostPerMonth: 25,
+    perRpsCost: 0.0002,
+    defaults: {
+      mode: 'block',
+      ruleset: 'baseline',
+      rateLimitRps: 0,
+      botProtection: true,
+    },
+    fields: [
+      {
+        key: 'mode',
+        label: 'Mode',
+        type: 'select',
+        section: 'Protection',
+        options: [
+          { value: 'monitor', label: 'Monitor only' },
+          { value: 'block', label: 'Block' },
+        ],
+        help: 'Monitor logs attacks and lets them through. Block actually stops them.',
+      },
+      {
+        key: 'ruleset',
+        label: 'Ruleset',
+        type: 'select',
+        section: 'Protection',
+        options: [
+          { value: 'baseline', label: 'Baseline' },
+          { value: 'owasp', label: 'OWASP Top 10' },
+        ],
+        help: 'OWASP catches more application attacks at the cost of the occasional false positive.',
+      },
+      {
+        key: 'rateLimitRps',
+        label: 'Edge rate limit',
+        type: 'number',
+        section: 'Protection',
+        min: 0,
+        max: 5000,
+        step: 10,
+        unit: 'req/s',
+        help: 'Reject excess traffic with 429 before it reaches the origin. 0 means off.',
+      },
+      {
+        key: 'botProtection',
+        label: 'Bot protection',
+        type: 'boolean',
+        section: 'Protection',
+        help: 'Challenge automated traffic. Slows credential stuffing and scrapers.',
+      },
+    ],
+    costPerMonth: (_node, _world, rps) => 25 + rps * 0.0002,
+    capacity: () => 50000,
+    latencyMs: () => 3,
+    availability: () => 0.9999,
+    validate: (node, _topology, world) => placementError(node, 'global', world),
+  },
+
   cdn: {
     kind: 'cdn',
     label: 'CDN',
@@ -126,6 +192,8 @@ export const COMPONENT_SPECS: Record<ComponentKind, ComponentSpec> = {
       originShield: false,
       cacheablePct: 80,
       compression: true,
+      tls: true,
+      tlsAutoRenew: false,
     },
     fields: [
       {
@@ -168,6 +236,20 @@ export const COMPONENT_SPECS: Record<ComponentKind, ComponentSpec> = {
         section: 'Efficiency',
         help: 'Reduces egress bytes. Nice for the bill.',
       },
+      {
+        key: 'tls',
+        label: 'TLS termination',
+        type: 'boolean',
+        section: 'Security',
+        help: 'Serve HTTPS at the edge. Turn it off and every visitor gets a certificate warning.',
+      },
+      {
+        key: 'tlsAutoRenew',
+        label: 'Auto-renew certificate',
+        type: 'boolean',
+        section: 'Security',
+        help: 'Renew certificates automatically. Off means a cert-expiry incident takes you down.',
+      },
     ],
     costPerMonth: (node, _world, rps) => 15 + rps * 0.0006,
     capacity: () => 50000,
@@ -193,6 +275,8 @@ export const COMPONENT_SPECS: Record<ComponentKind, ComponentSpec> = {
       healthyThreshold: 2,
       timeoutMs: 3000,
       drainingSeconds: 30,
+      tls: true,
+      tlsAutoRenew: false,
     },
     fields: [
       {
@@ -267,6 +351,20 @@ export const COMPONENT_SPECS: Record<ComponentKind, ComponentSpec> = {
           { value: 60, label: '60 seconds' },
         ],
         help: 'Let in-flight requests finish before removing a backend. Off means dropped requests during deploys.',
+      },
+      {
+        key: 'tls',
+        label: 'TLS termination',
+        type: 'boolean',
+        section: 'Security',
+        help: 'Terminate HTTPS here. Turn it off and external traffic is served in the clear.',
+      },
+      {
+        key: 'tlsAutoRenew',
+        label: 'Auto-renew certificate',
+        type: 'boolean',
+        section: 'Security',
+        help: 'Renew certificates before they expire. Off means a cert-expiry incident takes you down.',
       },
     ],
     costPerMonth: (node, _world, rps) => 20 + rps * 0.0001,
@@ -410,6 +508,8 @@ export const COMPONENT_SPECS: Record<ComponentKind, ComponentSpec> = {
       timeoutMs: 3000,
       retries: 0,
       retryBudgetPct: 10,
+      patching: 'manual',
+      secrets: 'env',
     },
     fields: [
       ...commonFields,
@@ -471,6 +571,30 @@ export const COMPONENT_SPECS: Record<ComponentKind, ComponentSpec> = {
         unit: '%',
         help: 'Cap retries as a share of traffic. Zero disables the budget.',
       },
+      {
+        key: 'patching',
+        label: 'Patch policy',
+        type: 'select',
+        section: 'Security',
+        options: [
+          { value: 'auto', label: 'Automatic' },
+          { value: 'manual', label: 'Manual' },
+          { value: 'never', label: 'Never' },
+        ],
+        help: 'Automatic patching keeps a vulnerability incident from taking the VM down.',
+      },
+      {
+        key: 'secrets',
+        label: 'Secret storage',
+        type: 'select',
+        section: 'Security',
+        options: [
+          { value: 'vault', label: 'Secrets manager' },
+          { value: 'env', label: 'Environment variables' },
+          { value: 'plain', label: 'Plain config files' },
+        ],
+        help: 'Plain secrets turn a credential leak into a data breach.',
+      },
     ],
     costPerMonth: (node) => {
       const key = cfgString(node, 'size', 'small') as SizeKey;
@@ -515,6 +639,8 @@ export const COMPONENT_SPECS: Record<ComponentKind, ComponentSpec> = {
       readinessProbe: true,
       livenessProbe: true,
       maxUnavailable: 1,
+      patching: 'manual',
+      secrets: 'env',
     },
     fields: [
       {
@@ -601,6 +727,30 @@ export const COMPONENT_SPECS: Record<ComponentKind, ComponentSpec> = {
         step: 1,
         help: 'Pods that may be down during a rolling deploy. Zero is slow but safe.',
       },
+      {
+        key: 'patching',
+        label: 'Patch policy',
+        type: 'select',
+        section: 'Security',
+        options: [
+          { value: 'auto', label: 'Automatic' },
+          { value: 'manual', label: 'Manual' },
+          { value: 'never', label: 'Never' },
+        ],
+        help: 'Automatic patching rolls pods safely. Manual patching means an outage window.',
+      },
+      {
+        key: 'secrets',
+        label: 'Secret storage',
+        type: 'select',
+        section: 'Security',
+        options: [
+          { value: 'vault', label: 'Secrets manager' },
+          { value: 'env', label: 'Environment variables' },
+          { value: 'plain', label: 'Plain config files' },
+        ],
+        help: 'Plain secrets turn a credential leak into a data breach.',
+      },
     ],
     costPerMonth: (node) => {
       const key = cfgString(node, 'size', 'medium') as SizeKey;
@@ -642,6 +792,9 @@ export const COMPONENT_SPECS: Record<ComponentKind, ComponentSpec> = {
       automaticFailover: true,
       connectionLimit: 100,
       storageGb: 100,
+      encryption: false,
+      backups: false,
+      publicAccess: false,
     },
     fields: [
       ...commonFields,
@@ -699,6 +852,27 @@ export const COMPONENT_SPECS: Record<ComponentKind, ComponentSpec> = {
         max: 2000,
         step: 20,
         unit: 'GB',
+      },
+      {
+        key: 'encryption',
+        label: 'Encryption at rest',
+        type: 'boolean',
+        section: 'Security',
+        help: 'Encrypt the volume and its backups. Boring, cheap, and the first thing an auditor asks for.',
+      },
+      {
+        key: 'backups',
+        label: 'Automated backups',
+        type: 'boolean',
+        section: 'Security',
+        help: 'Point-in-time backups. Without them, a bad day becomes an unrecoverable day.',
+      },
+      {
+        key: 'publicAccess',
+        label: 'Public network access',
+        type: 'boolean',
+        section: 'Security',
+        help: 'Reachable from the internet. Convenient for attackers and credential leaks.',
       },
     ],
     costPerMonth: (node) => {
@@ -803,6 +977,8 @@ export const COMPONENT_SPECS: Record<ComponentKind, ComponentSpec> = {
       storageGb: 100,
       storageClass: 'standard',
       versioning: true,
+      encryption: false,
+      publicAccess: false,
     },
     fields: [
       {
@@ -833,6 +1009,20 @@ export const COMPONENT_SPECS: Record<ComponentKind, ComponentSpec> = {
         section: 'Reliability',
         help: 'Keep old versions. Great for accidental deletes, less great for the bill.',
       },
+      {
+        key: 'encryption',
+        label: 'Encryption at rest',
+        type: 'boolean',
+        section: 'Security',
+        help: 'Encrypt objects and snapshots at rest.',
+      },
+      {
+        key: 'publicAccess',
+        label: 'Public bucket',
+        type: 'boolean',
+        section: 'Security',
+        help: 'Anyone on the internet can read the bucket. Great for marketing assets, terrible for backups.',
+      },
     ],
     costPerMonth: (node, _world, rps) => 5 + cfgNumber(node, 'storageGb', 100) * 0.1 + rps * 0.00002,
     capacity: () => 5000,
@@ -844,6 +1034,7 @@ export const COMPONENT_SPECS: Record<ComponentKind, ComponentSpec> = {
 
 export const COMPONENT_ORDER: ComponentKind[] = [
   'dns',
+  'waf',
   'cdn',
   'lb',
   'proxy',

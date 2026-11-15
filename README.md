@@ -43,14 +43,19 @@ reference but does not run GitHub Actions.
 
 ## What is in the game
 
-- **Seven campaign shifts** plus an endless sandbox:
-  1. *One Is None* — app HA, load balancers, health checks
-  2. *Two Is One* — database replication and failover
-  3. *The Split Brain* — partitions, sync vs async, data loss
-  4. *Pets and Cattle* — Kubernetes, readiness probes, rolling deploys
-  5. *Cache Rules Everything* — CDN, cache TTLs, stampedes
-  6. *Retry Harder* — slow backends, timeouts, retries, rate limits
-  7. *Cloudy with a Chance of Outage* — multi-region and DNS failover
+- **Seven campaign shifts** plus **a five-stage career**, **five standalone
+  scenarios**, and an endless sandbox.
+  - **Career:** start with one web server in a closet and grow through a
+    database, load balancing, caching, Kubernetes, and multi-region.
+  - **Scenarios:** Black Friday, Bad Deploy, Region Down, Zero Day, and The Leak.
+  - **Campaign:**
+    1. *One Is None* — app HA, load balancers, health checks
+    2. *Two Is One* — database replication and failover
+    3. *The Split Brain* — partitions, sync vs async, data loss
+    4. *Pets and Cattle* — Kubernetes, readiness probes, rolling deploys
+    5. *Cache Rules Everything* — CDN, cache TTLs, stampedes
+    6. *Retry Harder* — slow backends, timeouts, retries, rate limits
+    7. *Cloudy with a Chance of Outage* — multi-region and DNS failover
 - **Components:** DNS, CDN, load balancer, nginx proxy, app VMs, Kubernetes,
   Postgres, Redis, and object storage, across Cumulus, Stratus, and Nimbus
   clouds, regions, and zones.
@@ -63,9 +68,13 @@ reference but does not run GitHub Actions.
   noisy neighbors, and control-plane outages.
 - **Runbooks:** restart, drain, scale out, roll back, promote a database, flush a
   cache, rate limit, fail over DNS, or renew a certificate.
-- **Diagnostics:** live metrics, per-node saturation, request traces, an incident
-  timeline, and a generated postmortem with root cause, contributing factors,
-  action items, and stars.
+- **Diagnostics:** live metrics, per-node saturation, request traces, a log
+  stream, configurable alert rules, an incident timeline, and a generated
+  postmortem with root cause, contributing factors, action items, and stars.
+- **Security:** a WAF, TLS and certificate auto-renewal, database encryption and
+  backups, private data stores, automatic patching, secret management, a
+  security score with concrete findings, and incidents that exploit weak
+  settings.
 - **Infrastructure as code:** every design serializes to a readable YAML
   manifest. Edit it, validate it, apply it to the draft, then deploy.
 

@@ -395,7 +395,7 @@ describe('sandbox', () => {
   it('unlocks every component kind and ships a sensible starter stack', () => {
     const sandbox = createSandbox('normal', 7);
     expect(new Set(sandbox.unlockedKinds)).toEqual(
-      new Set(['dns', 'cdn', 'lb', 'proxy', 'vm', 'k8s', 'db', 'cache', 'storage']),
+      new Set(['dns', 'waf', 'cdn', 'lb', 'proxy', 'vm', 'k8s', 'db', 'cache', 'storage']),
     );
     expect(sandbox.sandbox).toBe(true);
     expect(sandbox.duration).toBe(3600);

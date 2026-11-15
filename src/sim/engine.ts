@@ -288,6 +288,10 @@ class SimulationEngine implements Simulation {
   private controlPlaneOutageCount = 0;
   /** Unprotected cache stampedes amplify load on the database. */
   private stampedePressure = 0;
+  /** Active credential leaks: stolen keys used against the app cause errors. */
+  private credentialLeakCount = 0;
+  /** Summed brute-force pressure; 1 means nothing at the edge is stopping it. */
+  private bruteForcePressure = 0;
 
   // caches
   private retryPolicies = new Map<ID, RetryPolicy>();
@@ -739,7 +743,18 @@ class SimulationEngine implements Simulation {
       return;
     }
 
-    if (rt.node.kind === 'proxy') {
+    if (this.entrySet.has(nodeId)) {
+      if (this.credentialLeakCount > 0 && this.rng.next() < 0.15) {
+        this.failAt(rt, request, 401, 'stolen credentials rejected');
+        return;
+      }
+      if (this.bruteForcePressure > 0 && this.rng.next() < 0.06 * this.bruteForcePressure) {
+        this.failAt(rt, request, 429, 'credential stuffing attempt');
+        return;
+      }
+    }
+
+    if (rt.node.kind === 'proxy' || rt.node.kind === 'waf') {
       const limit = cfgNumber(rt.node, 'rateLimitRps', 0);
       if (limit > 0) {
         const sec = Math.floor(this.currentTime);
@@ -834,6 +849,9 @@ class SimulationEngine implements Simulation {
       case 'cdn':
         this.routeCdn(rt, request);
         return;
+      case 'waf':
+        this.routeWaf(rt, request);
+        return;
       case 'lb':
         this.routeLoadBalancer(rt, request);
         return;
@@ -925,6 +943,26 @@ class SimulationEngine implements Simulation {
     }
     request.cacheHit = false;
     this.forward(rt, request, next);
+  }
+
+  private routeWaf(rt: RuntimeNode, request: SimRequest): void {
+    const targets = rt.out
+      .map((id) => this.runtime.get(id))
+      .filter((target): target is RuntimeNode => Boolean(target));
+
+    if (targets.length === 0) {
+      this.completeSuccess(request);
+      return;
+    }
+
+    const healthy = targets.filter((target) => this.isNodeUp(target) && !target.draining);
+    if (healthy.length === 0) {
+      this.failAt(rt, request, 502, 'no healthy upstream behind the WAF');
+      return;
+    }
+
+    // The WAF inspects traffic and hands it to a single upstream.
+    this.forward(rt, request, healthy[0].node.id);
   }
 
   private routeLoadBalancer(rt: RuntimeNode, request: SimRequest): void {
@@ -1573,22 +1611,189 @@ class SimulationEngine implements Simulation {
         return;
       }
 
-      case 'ddos': {
-        this.ddosCount += 1;
-        this.trafficMultipliers.push(2.5);
+      case 'credential-leak': {
+        const exposed = this.credentialExposure();
+        if (exposed.length === 0) {
+          this.addIssue(
+            `credential-leak-container:${incident.id}`,
+            'info',
+            'Credential leak contained',
+            'Nothing is publicly reachable and no workload stores plain secrets. The key was rotated without a breach.',
+            undefined,
+            incident.id,
+          );
+          return;
+        }
+
+        this.credentialLeakCount += 1;
         cleanups.push(() => {
-          this.ddosCount = Math.max(0, this.ddosCount - 1);
-          const index = this.trafficMultipliers.lastIndexOf(2.5);
+          this.credentialLeakCount = Math.max(0, this.credentialLeakCount - 1);
+        });
+
+        for (const rt of exposed) {
+          const publicStore = rt.node.kind === 'db' || rt.node.kind === 'storage';
+          this.addIssue(
+            `credential-leak:${rt.node.id}:${incident.id}`,
+            'critical',
+            `Exposed credentials on ${rt.node.name}`,
+            publicStore
+              ? `${rt.node.name} is publicly reachable, so the leaked credential reads production data.`
+              : `${rt.node.name} keeps secrets in plain config, so the leaked credential opens the app tier.`,
+            rt.node.id,
+            incident.id,
+          );
+        }
+        this.recordDataLoss(
+          exposed[0].node.id,
+          'Leaked credentials were used to read production data.',
+        );
+        return;
+      }
+
+      case 'vulnerability': {
+        const targets = this.incidentTargets(incident).filter(
+          (rt) => rt.node.kind === 'vm' || rt.node.kind === 'k8s',
+        );
+        const candidates = targets.length > 0
+          ? targets
+          : [...this.runtime.values()].filter((rt) => rt.node.kind === 'vm' || rt.node.kind === 'k8s');
+
+        if (candidates.length === 0) {
+          this.addIssue(
+            `vulnerability-noop:${incident.id}`,
+            'info',
+            'Vulnerability with nowhere to land',
+            'There is no compute tier to patch, so the advisory is a strongly worded email.',
+            undefined,
+            incident.id,
+          );
+          return;
+        }
+
+        for (const rt of candidates) {
+          if (cfgString(rt.node, 'patching', 'manual') === 'auto') {
+            this.addIssue(
+              `vulnerability-patched:${rt.node.id}:${incident.id}`,
+              'info',
+              `${rt.node.name} patched automatically`,
+              'The image was rebuilt and rolled out before the advisory became an outage.',
+              rt.node.id,
+              incident.id,
+            );
+            continue;
+          }
+
+          const key = `vuln:${incident.id}`;
+          rt.downReasons.add(key);
+          cleanups.push(() => rt.downReasons.delete(key));
+          this.addIssue(
+            `vulnerability:${rt.node.id}:${incident.id}`,
+            'critical',
+            `${rt.node.name} down for emergency patching`,
+            'Patching is manual, so the vulnerable host is out of rotation until someone rolls it.',
+            rt.node.id,
+            incident.id,
+          );
+        }
+        return;
+      }
+
+      case 'brute-force': {
+        const waf = this.wafMode();
+        const proxyLimited = this.hasProxyRateLimit();
+        const mitigated = waf === 'block' || proxyLimited;
+        const pressure = mitigated ? 0 : waf === 'monitor' ? 0.5 : 1;
+
+        if (pressure === 0) {
+          this.addIssue(
+            `brute-force-blocked:${incident.id}`,
+            'info',
+            'Credential stuffing blocked at the edge',
+            waf === 'block'
+              ? 'The WAF is rejecting login attempts before they reach the app.'
+              : 'The proxy rate limit is shedding the attack before it reaches the app.',
+            undefined,
+            incident.id,
+          );
+          return;
+        }
+
+        this.bruteForcePressure += pressure;
+        const multiplier = 1 + 0.3 * pressure;
+        this.trafficMultipliers.push(multiplier);
+        cleanups.push(() => {
+          this.bruteForcePressure = Math.max(0, this.bruteForcePressure - pressure);
+          const index = this.trafficMultipliers.indexOf(multiplier);
           if (index >= 0) this.trafficMultipliers.splice(index, 1);
         });
+        this.addIssue(
+          `brute-force:${incident.id}`,
+          waf === 'monitor' ? 'warning' : 'critical',
+          waf === 'monitor' ? 'Credential stuffing partially mitigated' : 'Credential stuffing underway',
+          waf === 'monitor'
+            ? 'The WAF is watching the attack in monitor mode. Some login attempts still reach the app.'
+            : 'Login attempts are hammering the app and nothing at the edge is absorbing them.',
+          undefined,
+          incident.id,
+        );
+        return;
+      }
+
+      case 'ddos': {
+        this.ddosCount += 1;
+        const waf = this.wafMode();
+        // Base traffic plus the attack. The WAF eats most of the attack volume.
+        const multiplier = waf === 'block' ? 1.3 : waf === 'monitor' ? 1.9 : 2.5;
+        this.trafficMultipliers.push(multiplier);
+        cleanups.push(() => {
+          this.ddosCount = Math.max(0, this.ddosCount - 1);
+          const index = this.trafficMultipliers.lastIndexOf(multiplier);
+          if (index >= 0) this.trafficMultipliers.splice(index, 1);
+        });
+        if (waf !== 'none') {
+          this.addIssue(
+            `ddos:${incident.id}`,
+            waf === 'block' ? 'warning' : 'critical',
+            waf === 'block' ? 'DDoS traffic filtered at the edge' : 'DDoS traffic only observed',
+            waf === 'block'
+              ? 'The WAF is dropping most attack traffic before it reaches the origin.'
+              : 'The WAF is in monitor mode. It is logging the flood while the origin absorbs it.',
+            undefined,
+            incident.id,
+          );
+        }
         return;
       }
 
       case 'cert-expiry': {
+        const autoRenew = [...this.runtime.values()].some(
+          (rt) =>
+            (rt.node.kind === 'lb' || rt.node.kind === 'cdn') &&
+            cfgBool(rt.node, 'tlsAutoRenew', false),
+        );
+        if (autoRenew) {
+          this.addIssue(
+            `cert-renew:${incident.id}`,
+            'info',
+            'Certificate renewed automatically',
+            'The edge rotated its certificate before it expired. Nobody had to wake up.',
+            undefined,
+            incident.id,
+          );
+          return;
+        }
         this.certExpiredCount += 1;
         cleanups.push(() => {
           this.certExpiredCount = Math.max(0, this.certExpiredCount - 1);
         });
+        this.addIssue(
+          `cert-expired:${incident.id}`,
+          'critical',
+          'Certificate expired',
+          'Nothing renewed the certificate, so every external connection is failing TLS.',
+          undefined,
+          incident.id,
+        );
         return;
       }
 
@@ -1668,6 +1873,41 @@ class SimulationEngine implements Simulation {
       if (direct?.node.kind === 'db') return direct;
     }
     return [...this.runtime.values()].find((rt) => rt.node.kind === 'db');
+  }
+
+  /** Strongest WAF policy deployed: blocking beats monitoring beats nothing. */
+  private wafMode(): 'block' | 'monitor' | 'none' {
+    let monitor = false;
+    for (const rt of this.runtime.values()) {
+      if (rt.node.kind !== 'waf') continue;
+      const mode = cfgString(rt.node, 'mode', 'block');
+      if (mode === 'block') return 'block';
+      if (mode === 'monitor') monitor = true;
+    }
+    return monitor ? 'monitor' : 'none';
+  }
+
+  private hasProxyRateLimit(): boolean {
+    for (const rt of this.runtime.values()) {
+      if (rt.node.kind === 'proxy' && cfgNumber(rt.node, 'rateLimitRps', 0) > 0) return true;
+    }
+    return false;
+  }
+
+  /** Data stores reachable from the internet, or workloads holding plain secrets. */
+  private credentialExposure(): RuntimeNode[] {
+    const exposed: RuntimeNode[] = [];
+    for (const rt of this.runtime.values()) {
+      const kind = rt.node.kind;
+      if ((kind === 'db' || kind === 'storage') && cfgBool(rt.node, 'publicAccess', false)) {
+        exposed.push(rt);
+        continue;
+      }
+      if ((kind === 'vm' || kind === 'k8s') && cfgString(rt.node, 'secrets', 'env') === 'plain') {
+        exposed.push(rt);
+      }
+    }
+    return exposed;
   }
 
   private applyDatabaseFailure(rt: RuntimeNode, incident: ScenarioIncident, cleanups: Array<() => void>): void {
@@ -2260,6 +2500,7 @@ export function createSimulation(
 /** Exposed for tests and tooling that want the raw kinds. */
 export const SIM_COMPONENT_KINDS: ComponentKind[] = [
   'dns',
+  'waf',
   'cdn',
   'lb',
   'proxy',

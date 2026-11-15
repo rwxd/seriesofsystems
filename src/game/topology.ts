@@ -286,9 +286,15 @@ export function renameIfDefault(node: TopologyNode, nextName: string): TopologyN
   return { ...node, name: nextName.trim() || node.name };
 }
 
-export function fitNodePosition(x: number, y: number, width = 1200, height = 700): { x: number; y: number } {
+export function fitNodePosition(
+  x: number,
+  y: number,
+  width = 1200,
+  height = 700,
+  minY = 40,
+): { x: number; y: number } {
   return {
     x: Math.max(40, Math.min(width - 180, Math.round(x))),
-    y: Math.max(40, Math.min(height - 90, Math.round(y))),
+    y: Math.max(minY, Math.min(height - 90, Math.round(y))),
   };
 }

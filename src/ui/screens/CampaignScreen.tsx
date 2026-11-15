@@ -6,6 +6,7 @@ import { LogoLockup } from '@/ui/components/Logo';
 import { Icon } from '@/ui/components/Icon';
 import {
   CAMPAIGN_LEVELS,
+  campaignCompleted,
   groupByAct,
   isLevelUnlocked,
   previousLevelTitle,
@@ -46,7 +47,7 @@ export function CampaignScreen() {
         </span>
         <span className="campaign__stat" title="Levels completed">
           <Icon name="check-circle" size={13} style={{ color: 'var(--mint-2)' }} />
-          {profile.completed.length} done
+          {campaignCompleted(profile)} done
         </span>
         {best > 0 && (
           <span className="campaign__stat" title="Best sandbox score">
@@ -70,6 +71,12 @@ export function CampaignScreen() {
             </p>
           </div>
           <div className="row" style={{ gap: 8 }}>
+            <Btn variant="outline" size="sm" icon="series" onClick={() => go('career')}>
+              Career
+            </Btn>
+            <Btn variant="outline" size="sm" icon="trace" onClick={() => go('scenarios')}>
+              Scenarios
+            </Btn>
             <Btn variant="outline" size="sm" icon="bolt" onClick={() => togglePanel('sandboxSetupOpen')}>
               Sandbox
             </Btn>

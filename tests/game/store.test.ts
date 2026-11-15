@@ -44,6 +44,8 @@ describe('game store integration', () => {
     expect(state.phase).toBe('ended');
     expect(state.postmortem?.outcome).toBe('failure');
     expect(state.postmortem?.metrics.errorSeconds).toBeGreaterThan(10);
+    useGame.getState().nextLevel();
+    expect(useGame.getState().screen).toBe('campaign');
   });
 
   it('wins level 1 after adding a second zonal VM and tuning the LB', () => {
@@ -84,5 +86,37 @@ describe('game store integration', () => {
     ).toBe(true);
     useGame.getState().startRun();
     expect(useGame.getState().phase).toBe('briefing');
+  });
+
+  it('opens career stage one and keeps later stages locked', () => {
+    useGame.getState().openCareerStage('career-one-box');
+    expect(useGame.getState().scenario?.id).toBe('career-one-box');
+    expect(useGame.getState().runMode).toBe('career');
+    useGame.getState().openCareerStage('career-database');
+    expect(useGame.getState().scenario?.id).toBe('career-one-box');
+    expect(useGame.getState().toast?.tone).toBe('danger');
+  });
+
+  it('opens a standalone security scenario', () => {
+    useGame.getState().openScenario('scenario-zero-day');
+    expect(useGame.getState().scenario?.id).toBe('scenario-zero-day');
+    expect(useGame.getState().runMode).toBe('scenario');
+    expect(useGame.getState().scenario?.unlockedKinds).toContain('waf');
+  });
+
+  it('raises a monitoring alert when availability falls', () => {
+    useGame.getState().openLevel('one-is-none');
+    useGame.getState().startRun();
+    runToEnd();
+    const state = useGame.getState();
+    expect(state.firedAlerts.some((alert) => alert.ruleId === 'availability')).toBe(true);
+    expect(state.firedAlerts.some((alert) => alert.severity === 'critical')).toBe(true);
+  });
+
+  it('lets the player tune alert rules', () => {
+    useGame.getState().toggleAlertRule('p95');
+    expect(useGame.getState().alertRules.find((rule) => rule.id === 'p95')?.enabled).toBe(false);
+    useGame.getState().updateAlertRule('p95', { threshold: 500 });
+    expect(useGame.getState().alertRules.find((rule) => rule.id === 'p95')?.threshold).toBe(500);
   });
 });

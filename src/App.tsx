@@ -3,6 +3,8 @@ import { useGame } from '@/game/store';
 import { useSimLoop } from '@/game/loop';
 import { TitleScreen } from '@/ui/screens/TitleScreen';
 import { CampaignScreen } from '@/ui/screens/CampaignScreen';
+import { CareerScreen } from '@/ui/screens/CareerScreen';
+import { ScenariosScreen } from '@/ui/screens/ScenariosScreen';
 import { HowToScreen } from '@/ui/screens/HowToScreen';
 import { SettingsScreen } from '@/ui/screens/SettingsScreen';
 import { GameScreen } from '@/ui/game/GameScreen';
@@ -24,6 +26,8 @@ export function App() {
     <div className="app-root">
       {screen === 'title' && <TitleScreen key="title" />}
       {screen === 'campaign' && <CampaignScreen key="campaign" />}
+      {screen === 'career' && <CareerScreen key="career" />}
+      {screen === 'scenarios' && <ScenariosScreen key="scenarios" />}
       {screen === 'howto' && <HowToScreen key="howto" />}
       {screen === 'settings' && <SettingsScreen key="settings" />}
       {screen === 'game' && <GameScreen key="game" />}

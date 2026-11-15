@@ -16,6 +16,7 @@ export type NodeConfig = Record<string, ConfigValue>;
 
 export type ComponentKind =
   | 'dns'
+  | 'waf'
   | 'cdn'
   | 'lb'
   | 'proxy'
@@ -183,6 +184,9 @@ export type IncidentKind =
   | 'db-failover'
   | 'control-plane-outage'
   | 'noisy-neighbor'
+  | 'credential-leak'
+  | 'vulnerability'
+  | 'brute-force'
   | 'ddos';
 
 export type Severity = 'info' | 'warning' | 'critical';
