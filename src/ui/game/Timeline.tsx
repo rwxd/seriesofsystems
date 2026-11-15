@@ -114,7 +114,7 @@ export function Timeline({ snapshot }: { snapshot: SimSnapshot | null }) {
           type="button"
           className="expand-btn"
           aria-expanded={dashboardOpen}
-          onClick={() => togglePanel('dashboard')}
+          onClick={() => togglePanel('dashboardOpen')}
           title="Toggle metrics drawer (D)"
         >
           <Icon name="chevron-up" size={13} />

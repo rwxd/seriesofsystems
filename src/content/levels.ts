@@ -636,6 +636,7 @@ export const CAMPAIGN_LEVELS: Scenario[] = [
     hints: [
       'DNS TTL is your failover time. Sixty seconds of cached answers is sixty seconds of outage.',
       'A second region needs its own LB, its own compute, and a database that is not in the failed region.',
+      'Add the eu-west load balancer first, set its Region in the inspector, then add the rest: new components follow the selected region.',
       'Cross-region latency is 45 ms. Budget for it in the p95 objective.',
     ],
     world: US_AND_EU,

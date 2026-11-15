@@ -10,6 +10,7 @@ import {
   isLevelUnlocked,
   previousLevelTitle,
   sandboxBest,
+  starsFor,
   totalStars,
 } from '@/ui/lib/campaign';
 import { fmtDuration, fmtMoney, objectiveTargets } from '@/ui/lib/format';
@@ -69,7 +70,7 @@ export function CampaignScreen() {
             </p>
           </div>
           <div className="row" style={{ gap: 8 }}>
-            <Btn variant="outline" size="sm" icon="bolt" onClick={() => togglePanel('sandboxSetup')}>
+            <Btn variant="outline" size="sm" icon="bolt" onClick={() => togglePanel('sandboxSetupOpen')}>
               Sandbox
             </Btn>
             <Btn
@@ -142,7 +143,7 @@ export function CampaignScreen() {
           <div className="sandbox-card__best">
             <span className="eyebrow">Best score</span>
             <strong>{best > 0 ? Math.round(best).toLocaleString('en-US') : '—'}</strong>
-            <Btn size="sm" icon="play" variant="ink" onClick={() => togglePanel('sandboxSetup')}>
+            <Btn size="sm" icon="play" variant="ink" onClick={() => togglePanel('sandboxSetupOpen')}>
               Set up
             </Btn>
           </div>
@@ -170,7 +171,7 @@ function LevelCard({
   onOpen: () => void;
 }) {
   const unlocked = isLevelUnlocked(level.id, profile);
-  const stars = profile.stars[level.id] ?? 0;
+  const stars = starsFor(profile, level.id);
   const completed = profile.completed.includes(level.id) || stars > 0;
   const objectives = objectiveTargets(level.objectives);
   const previous = previousLevelTitle(level.id);

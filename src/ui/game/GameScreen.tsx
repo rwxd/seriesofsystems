@@ -63,7 +63,7 @@ export function GameScreen() {
         !ui.iacOpen &&
         !ui.postmortemOpen
       ) {
-        togglePanel('incident');
+        togglePanel('incidentOpen');
       }
     }
   }, [snapshot, scenario, sound, togglePanel]);
@@ -123,7 +123,7 @@ export function GameScreen() {
         return;
       }
       if (event.key === 'd' || event.key === 'D') {
-        togglePanel('dashboard');
+        togglePanel('dashboardOpen');
         return;
       }
       if (event.key === 'l' || event.key === 'L') {
@@ -206,7 +206,7 @@ export function GameScreen() {
                 Keep it up and the postmortem writes itself.
               </span>
               <span className="game-banner__spacer" />
-              <Btn size="sm" variant="outline" onClick={() => togglePanel('dashboard')}>
+              <Btn size="sm" variant="outline" onClick={() => togglePanel('dashboardOpen')}>
                 Metrics
               </Btn>
             </div>
@@ -235,7 +235,7 @@ export function GameScreen() {
                   : 'The simulation wrapped up.'}
               </p>
               <div className="row" style={{ gap: 8, marginTop: 4 }}>
-                <Btn variant="primary" icon="book" onClick={() => togglePanel('postmortem')}>
+                <Btn variant="primary" icon="book" onClick={() => togglePanel('postmortemOpen')}>
                   Read the report
                 </Btn>
                 <Btn icon="reset" onClick={() => retry()}>
@@ -253,7 +253,7 @@ export function GameScreen() {
           <button
             type="button"
             className="palette-scrim"
-            onClick={() => togglePanel('palette')}
+            onClick={() => togglePanel('paletteOpen')}
             aria-label="Close component palette"
           />
         )}

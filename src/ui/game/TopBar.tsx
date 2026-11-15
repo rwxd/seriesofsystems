@@ -60,7 +60,7 @@ export function TopBar({ snapshot }: { snapshot: SimSnapshot | null }) {
           className="only-narrow"
           icon="layers"
           aria-label="Open component palette"
-          onClick={() => togglePanel('palette')}
+          onClick={() => togglePanel('paletteOpen')}
         >
           Add
         </Btn>
@@ -155,7 +155,7 @@ export function TopBar({ snapshot }: { snapshot: SimSnapshot | null }) {
           icon="gauge"
           aria-label="Open metrics dashboard"
           title="Metrics dashboard (D)"
-          onClick={() => togglePanel('dashboard')}
+          onClick={() => togglePanel('dashboardOpen')}
         />
         <Btn
           variant="ghost"
@@ -171,13 +171,13 @@ export function TopBar({ snapshot }: { snapshot: SimSnapshot | null }) {
           icon="help"
           aria-label="How to play"
           title="Help"
-          onClick={() => togglePanel('help')}
+          onClick={() => togglePanel('helpOpen')}
         />
 
         <button
           type="button"
           className={`btn btn--ghost btn--icon bell${activeIncidents > 0 ? ' bell--live' : ''}`}
-          onClick={() => togglePanel('incident')}
+          onClick={() => togglePanel('incidentOpen')}
           aria-label={
             unreadAlerts > 0
               ? `Pager: ${unreadAlerts} unread incident${unreadAlerts === 1 ? '' : 's'}`
@@ -210,7 +210,7 @@ export function TopBar({ snapshot }: { snapshot: SimSnapshot | null }) {
           </Btn>
         )}
         {phase === 'ended' && (
-          <Btn size="sm" icon="book" variant="ink" onClick={() => togglePanel('postmortem')}>
+          <Btn size="sm" icon="book" variant="ink" onClick={() => togglePanel('postmortemOpen')}>
             Report
           </Btn>
         )}

@@ -6,7 +6,7 @@ import { Icon } from '@/ui/components/Icon';
 import { clamp, hexAlpha } from '@/ui/lib/format';
 import { NodeCard } from './NodeCard';
 import { LinkPath } from './LinkPath';
-import { computeContainers, sceneBounds, type Container } from './layout';
+import { CANVAS_H, CANVAS_W, computeContainers, sceneBounds, type Container } from './layout';
 
 interface Viewport {
   x: number;
@@ -97,8 +97,14 @@ export function Canvas({
   /* ---------------- fit ---------------- */
 
   const fit = useCallback(() => {
-    const bounds = sceneBounds(topologyRef.current, computeContainers(topologyRef.current, world));
-    if (!bounds || size.w < 40 || size.h < 40) return;
+    const bounds =
+      sceneBounds(topologyRef.current, computeContainers(topologyRef.current, world)) ?? {
+        x: 0,
+        y: 0,
+        w: CANVAS_W,
+        h: CANVAS_H,
+      };
+    if (size.w < 40 || size.h < 40) return;
     const padding = 56;
     const k = clamp(
       Math.min((size.w - padding * 2) / Math.max(1, bounds.w), (size.h - padding * 2) / Math.max(1, bounds.h)),

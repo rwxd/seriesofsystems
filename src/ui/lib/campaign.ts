@@ -1,4 +1,5 @@
 import { LEVELS } from '@/content/levels';
+import { isLevelUnlocked as storeIsLevelUnlocked, levelStars } from '@/game/store';
 import type { ComponentKind, Profile, Scenario } from '@/sim/types';
 
 /**
@@ -56,12 +57,13 @@ export function levelIndex(levelId: string): number {
   return CAMPAIGN_LEVELS.findIndex((level) => level.id === levelId);
 }
 
+/** Delegates to the store so a card can never look unlocked when the run isn't. */
 export function isLevelUnlocked(levelId: string, profile: Profile): boolean {
-  const index = levelIndex(levelId);
-  if (index <= 0) return true;
-  const previous = CAMPAIGN_LEVELS[index - 1];
-  if (!previous) return true;
-  return profile.completed.includes(previous.id) || (profile.stars[previous.id] ?? 0) > 0;
+  return storeIsLevelUnlocked(profile, levelId);
+}
+
+export function starsFor(profile: Profile, levelId: string): number {
+  return levelStars(profile, levelId);
 }
 
 export function previousLevelTitle(levelId: string): string | null {

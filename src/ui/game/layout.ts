@@ -3,6 +3,17 @@ import type { ComponentKind, PlacementScope, Topology, TopologyNode, World } fro
 export const NODE_W = 178;
 export const NODE_H = 86;
 
+/** The store keeps node positions inside roughly this design space. */
+export const CANVAS_W = 1200;
+export const CANVAS_H = 700;
+
+function clampSpot(x: number, y: number): { x: number; y: number } {
+  return {
+    x: Math.round(Math.min(CANVAS_W - NODE_W - 16, Math.max(32, x))),
+    y: Math.round(Math.min(CANVAS_H - NODE_H - 16, Math.max(32, y))),
+  };
+}
+
 export interface Box {
   x: number;
   y: number;
@@ -182,19 +193,15 @@ function overlaps(box: Box, other: Box, gap: number): boolean {
 
 function findSpot(topology: Topology, anchor: { x: number; y: number }): { x: number; y: number } {
   const gap = 20;
-  for (let row = 0; row < 14; row += 1) {
-    for (let col = 0; col < 4; col += 1) {
-      const candidate = {
-        x: anchor.x + col * (NODE_W + gap),
-        y: anchor.y + row * (NODE_H + gap),
-        w: NODE_W,
-        h: NODE_H,
-      };
+  for (let row = 0; row < 16; row += 1) {
+    for (let col = 0; col < 5; col += 1) {
+      const spot = clampSpot(anchor.x + col * (NODE_W + gap), anchor.y + row * (NODE_H + gap));
+      const candidate = { x: spot.x, y: spot.y, w: NODE_W, h: NODE_H };
       const collides = topology.nodes.some((node) => overlaps(candidate, nodeBox(node), 14));
-      if (!collides) return { x: candidate.x, y: candidate.y };
+      if (!collides) return spot;
     }
   }
-  return { x: anchor.x, y: anchor.y + 220 };
+  return clampSpot(anchor.x, anchor.y + 240);
 }
 
 export interface AutoPlacement {
@@ -213,6 +220,7 @@ export function autoPlacement(
   world: World,
   topology: Topology,
   selected: TopologyNode | null,
+  preferredRegionId?: string,
 ): AutoPlacement {
   if (scope === 'global') {
     const bounds = sceneBounds(topology, computeContainers(topology, world));
@@ -229,9 +237,10 @@ export function autoPlacement(
   }
 
   const selectedRegion =
-    selected?.regionId && world.regions.some((region) => region.id === selected.regionId)
+    (preferredRegionId && world.regions.find((region) => region.id === preferredRegionId)) ||
+    (selected?.regionId && world.regions.some((region) => region.id === selected.regionId)
       ? world.regions.find((region) => region.id === selected.regionId)!
-      : world.regions[0];
+      : world.regions[0]);
 
   if (!selectedRegion) {
     const spot = findSpot(topology, { x: 80, y: 80 });

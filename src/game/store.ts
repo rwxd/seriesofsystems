@@ -712,7 +712,6 @@ export const useGame = create<GameStore>()((set, get) => {
         events: [...state.events, event].slice(-400),
         unreadAlerts: event.kind === 'incident' ? state.unreadAlerts + 1 : state.unreadAlerts,
         phase: critical && state.phase === 'running' ? 'paused' : state.phase,
-        ui: critical ? { ...state.ui, incidentOpen: true } : state.ui,
       });
     },
 

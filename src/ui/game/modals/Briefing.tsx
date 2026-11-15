@@ -41,7 +41,9 @@ export function BriefingModal() {
           </Btn>
           <span className="spacer" />
           <span className="mono" style={{ fontSize: 10, color: 'var(--ink-soft)' }}>
-            {scenario.incidents.length} known risk{scenario.incidents.length === 1 ? '' : 's'} scheduled
+            {scenario.sandbox
+              ? 'incidents arrive unannounced'
+              : `${scenario.incidents.length} known risk${scenario.incidents.length === 1 ? '' : 's'} scheduled`}
           </span>
           <Btn
             variant="primary"

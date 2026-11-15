@@ -21,7 +21,7 @@ export function PostmortemModal() {
   return (
     <Modal
       open={open}
-      onClose={() => togglePanel('postmortem')}
+      onClose={() => togglePanel('postmortemOpen')}
       kicker={`Postmortem · ${postmortem.levelTitle}`}
       title={success ? 'Shift survived' : 'Shift ended badly'}
       sub={`${postmortem.levelTitle} · ${shortName(scenario.customer)}`}

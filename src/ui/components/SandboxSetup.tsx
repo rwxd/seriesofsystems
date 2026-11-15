@@ -10,7 +10,7 @@ export function SandboxSetup() {
   const openSandbox = useGame((state) => state.openSandbox);
   const [difficulty, setDifficulty] = useState<'relaxed' | 'normal' | 'chaos'>('normal');
 
-  const close = () => togglePanel('sandboxSetup');
+  const close = () => togglePanel('sandboxSetupOpen');
 
   return (
     <Modal

@@ -133,7 +133,7 @@ function InspectorEmpty({ issueCount }: { issueCount: number }) {
           </div>
         )}
 
-        <Btn variant="outline" size="sm" icon="gauge" block onClick={() => togglePanel('dashboard')}>
+        <Btn variant="outline" size="sm" icon="gauge" block onClick={() => togglePanel('dashboardOpen')}>
           Open metrics
         </Btn>
       </div>

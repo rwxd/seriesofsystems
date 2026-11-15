@@ -61,6 +61,8 @@ Open http://localhost:5173.
 
 Any topology edit pauses the run and marks a deploy pending. Press **Deploy** to
 apply it to the live system. Incidents pause the run when they need attention.
+When a scenario exposes more than one region, the **Place in** selector at the
+top of the component palette chooses where the next component lands.
 
 ## Develop
 
@@ -88,3 +90,7 @@ design notes, and file map.
 - **Reliability has a price.** Budgets matter; over-engineering loses too.
 - **The postmortem is the lesson.** The game explains why it broke, not just that
   it broke.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

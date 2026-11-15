@@ -65,7 +65,7 @@ export function Dashboard({ snapshot }: { snapshot: SimSnapshot | null }) {
         <button
           type="button"
           className="btn btn--ghost btn--icon btn--sm"
-          onClick={() => useGame.getState().togglePanel('dashboard')}
+          onClick={() => useGame.getState().togglePanel('dashboardOpen')}
           aria-label="Close metrics drawer"
         >
           <Icon name="chevron-down" size={15} />
