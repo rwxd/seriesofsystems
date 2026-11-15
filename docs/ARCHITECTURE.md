@@ -22,9 +22,12 @@ src/
     heap.ts     binary heap (sim lane)
     metrics.ts  rolling metrics / quantiles (sim lane)
     availability.ts  theoretical availability estimate (sim lane)
+    security.ts      security score and findings (security lane)
   content/      worlds, levels, sandbox, YAML, copy (content lane)
     worlds.ts
     levels.ts
+    career.ts    five-stage career ladder
+    scenarios.ts five standalone challenges
     sandbox.ts
     iac.ts
     postmortem.ts
@@ -35,7 +38,7 @@ src/
     loop.ts
   ui/           React UI (designer lane)
     components/ primitives, icons
-    screens/    Title, Campaign, HowTo, Settings
+    screens/    Title, Campaign, Career, Scenarios, HowTo, Settings
     game/       Game screen, canvas, inspector, HUD, dashboard, modals
   styles/       CSS tokens, base, game styles
 ```
@@ -45,22 +48,33 @@ Never edit another lane's files. `src/sim/types.ts`, `config.ts`, and
 
 ## Product flow
 
-Screens: **Title → Campaign map → Game**. Sandbox starts from the Campaign map
-and opens a difficulty choice. How to Play and Settings are modals/screens.
+Screens: **Title → Campaign map / Career / Scenarios → Game**. Sandbox starts
+from the Campaign map and opens a difficulty choice. How to Play and Settings
+are modals/screens.
 
-A level run:
+Three single-player modes share the same run screen:
+
+- **Campaign** — seven fixed shifts, unlocked in order.
+- **Career** — five stages starting with one web server in a closet and growing
+  to multi-region. Stage N unlocks when stage N-1 is completed.
+- **Scenarios** — self-contained bad days, all available: Black Friday, Bad
+  Deploy, Region Down, Zero Day, and The Leak.
+
+A run:
 
 1. **Briefing** — customer message, objectives, starting topology. `Start shift`.
 2. **Editing / Running** — the sim starts paused on the briefing, then runs.
    Any topology edit auto-pauses the run and marks a deploy pending. `Deploy`
    applies the draft to the live sim.
 3. **Incidents** — a pager alert appears. The player can diagnose (metrics,
-   traces), edit/deploy, or use a runbook.
+   traces, logs, alerts, security findings), edit/deploy, or use a runbook.
 4. **End** — after `scenario.duration` seconds, generate a postmortem with
-   objectives, stars, timeline, root cause, and action items.
+   objectives, stars, timeline, root cause, and action items. The postmortem
+   returns to the mode the run came from and only advances if the next stage is
+   actually unlocked.
 
 Stars: 0 = failed, 1 = survived, 2 = survived under budget, 3 = all objectives.
-Campaign progress persists.
+Progress persists for campaign, career, scenarios, and sandbox best score.
 
 ## Simulation spec
 
@@ -107,6 +121,10 @@ Routing by component kind:
 - `proxy`: enforce `rateLimitRps` (excess = 429), `workerConnections` capacity,
   and read timeouts; balance across upstreams with `algorithm` (`round-robin` or
   `least-conn`), skipping down/drained backends, then forward to one backend.
+- `waf`: a global edge filter. Enforce its `rateLimitRps`, forward to one
+  upstream, and mitigate DDoS/brute-force incidents in `block` mode (partial
+  mitigation in `monitor` mode). The security score only credits a WAF that is
+  actually linked into the request path.
 - `vm`: serve the app. If the scenario requires a database and this VM has no
   path to a db, fail 500 with a clear issue. If a cache is connected, consult it
   (cache hit ratio from cache spec); on hit complete, on miss go to db. If a db
@@ -156,7 +174,8 @@ Incident semantics:
 - `region-down`: every node in the region is down. DNS may fail over.
 - `node-crash`: target node down for duration; auto-restart after 3 s if the
   incident duration is longer? Keep it simple: down for duration, then healthy.
-- `node-slow`: target capacity ×0.4 and latency ×3.
+- `node-slow`: target capacity ×0.4 and latency ×20 (the "slow backend" is a
+  dramatic slowdown, not a polite one).
 - `db-failover`: force the DB HA path described above.
 - `network-partition`: db replica/standby is stale for the duration; if
   `replication=async`, mark `staleReplica`; if `sync`, writes fail fast.
@@ -165,9 +184,16 @@ Incident semantics:
 - `cache-stampede`: cache hit ratio drops to 0 for duration; stampede protection
   determines db amplification.
 - `traffic-spike`: multiply traffic by 1.8–3× for duration.
-- `ddos`: extra traffic + 429s; rate limits matter.
-- `cert-expiry`: all external traffic fails until `renew-cert` runbook or
-  duration ends.
+- `ddos`: extra traffic + 429s; a WAF in block mode absorbs most of it, monitor
+  mode partially, no WAF leaves the origin exposed.
+- `cert-expiry`: all external traffic fails unless a load balancer or CDN has
+  `tlsAutoRenew` on; the `renew-cert` runbook fixes it manually.
+- `credential-leak`: data loss and 401s if any database/storage is publicly
+  reachable or any compute node keeps secrets in plain config; otherwise
+  contained.
+- `vulnerability`: target compute node goes down unless `patching=auto`.
+- `brute-force`: credential stuffing pressure; WAF block mode or a proxy rate
+  limit mitigates it.
 - `disk-full`: db capacity ×0.5 and writes fail 10% of the time.
 - `control-plane-outage`: HPA/reschedule/automatic recovery disabled.
 - `noisy-neighbor`: target capacity ×0.6.
@@ -201,6 +227,22 @@ Per 1 s bucket:
 Theoretical availability (`availability.ts`) is optional but nice: recursively
 combine series nodes and parallel backends from the entry to the data tier.
 Show it in the UI as "estimated path availability".
+
+### Security posture and monitoring
+
+- `src/sim/security.ts` computes a deterministic 0-100 security score and a list
+  of actionable findings from the deployed/draft topology: WAF mode and edge
+  rate limit, TLS and auto-renew, DB/storage encryption, backups, public access,
+  patching, secrets, and proxy rate limits. A WAF only counts when it is linked
+  into the request path.
+- The UI shows the score and findings in the dashboard Security tab and in the
+  selected component's inspector.
+- Monitoring is client-side on top of snapshots: configurable alert rules
+  (error rate, p95, max queue, availability, security score), a fired-alert
+  history, a log stream synthesized from events/issues/traces, trace filters
+  (failed/slow/search), a per-node metrics explorer, and an error-budget-left
+  readout. Alerts fire on rising edges and become toasts, log lines, and
+  timeline events.
 
 ### Snapshot
 
