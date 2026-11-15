@@ -42,11 +42,10 @@ jobs:
 
   container:
     needs: test
-    # Container publishing is paused until REGISTRY_TOKEN is a personal token
-    # with write:package. Forgejo's automatic github.token cannot push packages.
-    # Set the repository variable ENABLE_CONTAINER=true to re-enable.
+    # Image publishing is on by default. Set the repository variable
+    # DISABLE_CONTAINER=true to pause it while keeping tests and releases.
     if: |
-      vars.ENABLE_CONTAINER == 'true' &&
+      vars.DISABLE_CONTAINER != 'true' &&
       (github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))))
     runs-on: ubuntu-latest
@@ -177,7 +176,7 @@ jobs:
           RETENTION_DAYS: ${{ env.RETENTION_DAYS }}
 
   semantic-release:
-    needs: [test, container]
+    needs: [test]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
