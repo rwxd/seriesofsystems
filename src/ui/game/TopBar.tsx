@@ -12,6 +12,8 @@ export function TopBar({ snapshot }: { snapshot: SimSnapshot | null }) {
   const deployPending = useGame((state) => state.deployPending);
   const unreadAlerts = useGame((state) => state.unreadAlerts);
   const closeGame = useGame((state) => state.closeGame);
+  const go = useGame((state) => state.go);
+  const runMode = useGame((state) => state.runMode);
   const pause = useGame((state) => state.pause);
   const resume = useGame((state) => state.resume);
   const setSpeed = useGame((state) => state.setSpeed);
@@ -42,9 +44,13 @@ export function TopBar({ snapshot }: { snapshot: SimSnapshot | null }) {
         <button
           type="button"
           className="topbar__brand-mark"
-          onClick={() => closeGame()}
-          aria-label="Leave shift and return to campaign"
-          title="Back to campaign"
+          onClick={() => {
+            closeGame();
+            if (runMode === 'career') go('career');
+            else if (runMode === 'scenario') go('scenarios');
+          }}
+          aria-label="Leave shift and return to the mode screen"
+          title="Back to the mode screen"
         >
           <LogoMark size={30} />
         </button>

@@ -2479,14 +2479,13 @@
     gap: 6px;
   }
 
+  .topbar__level,
   .topbar__stats {
-    gap: 6px;
-    justify-content: flex-start;
-    overflow-x: auto;
+    display: none;
   }
 
-  .topbar__level strong {
-    max-width: 15ch;
+  .topbar__actions {
+    margin-left: auto;
   }
 
   .timeline {

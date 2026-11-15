@@ -106,6 +106,7 @@ export function Palette() {
                           regionId || undefined,
                         );
                         addNode(kind, placement.x, placement.y, placement.placement);
+                        if (paletteOpen) togglePanel('paletteOpen');
                       }}
                       aria-label={isUnlocked ? `Add ${spec.label}` : `${spec.label} locked`}
                     >

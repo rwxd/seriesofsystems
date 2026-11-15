@@ -679,10 +679,17 @@ function buildRootCause(
   }
 
   if ((incidentKinds.has('traffic-spike') || incidentKinds.has('ddos')) && proxies.length > 0) {
-    const proxy = proxies.find((node) => cfgNumber(node, 'rateLimitRps', 0) === 0) ?? proxies[0];
-    return `Traffic climbed to ${peakRps(snapshot)} rps and ${nodeLabel(
-      proxy,
-    )} had no rate limit (rateLimitRps ${cfgNumber(proxy, 'rateLimitRps', 0)}), so the origin absorbed all of it until it could not.`;
+    const wafBlock = wafs.some((node) => cfgString(node, 'mode', 'block') === 'block');
+    if (!wafBlock) {
+      const proxy = proxies.find((node) => cfgNumber(node, 'rateLimitRps', 0) === 0) ?? proxies[0];
+      return `Traffic climbed to ${peakRps(snapshot)} rps and ${nodeLabel(
+        proxy,
+      )} had no rate limit (rateLimitRps ${cfgNumber(proxy, 'rateLimitRps', 0)}), so the origin absorbed all of it until it could not.`;
+    }
+  }
+
+  if (incidentKinds.has('ddos') && wafs.some((node) => cfgString(node, 'mode', 'block') === 'block')) {
+    return 'The WAF in block mode absorbed the attack before it reached the origin. The edge did the job it was paid for.';
   }
 
   if (incidentKinds.has('cert-expiry')) {

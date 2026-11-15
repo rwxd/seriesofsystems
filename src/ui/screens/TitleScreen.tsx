@@ -1,4 +1,6 @@
 import { useGame } from '@/game/store';
+import { CAREER_STAGES } from '@/content/career';
+import { SCENARIOS } from '@/content/scenarios';
 import { Btn, StarRow } from '@/ui/components/ui';
 import { LogoLockup, LogoMark } from '@/ui/components/Logo';
 import { campaignCompleted, totalStars, sandboxBest, CAMPAIGN_LEVELS } from '@/ui/lib/campaign';
@@ -13,7 +15,9 @@ export function TitleScreen() {
   const stars = totalStars(profile);
   const completed = campaignCompleted(profile);
   const best = sandboxBest(profile);
-  const hasProgress = completed > 0 || stars > 0 || best > 0;
+  const careerDone = CAREER_STAGES.filter((stage) => profile.completed.includes(stage.id)).length;
+  const scenarioDone = SCENARIOS.filter((scenario) => profile.completed.includes(scenario.id)).length;
+  const hasProgress = completed > 0 || stars > 0 || best > 0 || careerDone > 0 || scenarioDone > 0;
 
   return (
     <div className="screen blueprint-bg">
@@ -59,9 +63,10 @@ export function TitleScreen() {
                 <span style={{ display: 'grid', gap: 2, flex: 1 }}>
                   <span className="eyebrow">Last shift recorded</span>
                   <span className="row" style={{ gap: 8 }}>
-                    <StarRow value={Math.min(3, Math.round(stars / Math.max(1, completed || 1)))} />
+                    <StarRow value={completed > 0 ? Math.min(3, Math.round(stars / completed)) : 0} />
                     <span className="mono" style={{ fontSize: 11, color: 'var(--ink-soft)' }}>
-                      {completed}/{CAMPAIGN_LEVELS.length || '—'} levels · {fmtNum(stars)} stars
+                      C {completed}/{CAMPAIGN_LEVELS.length || '—'} · Career {careerDone}/{CAREER_STAGES.length} · Scenarios{' '}
+                      {scenarioDone}/{SCENARIOS.length} · {fmtNum(stars)}★
                     </span>
                   </span>
                 </span>
@@ -81,7 +86,7 @@ export function TitleScreen() {
 
             <div className="title__actions">
               <Btn variant="primary" size="lg" icon="play" onClick={() => go('campaign')}>
-                {hasProgress ? 'Continue campaign' : 'Play campaign'}
+                {completed > 0 ? 'Continue campaign' : 'Play campaign'}
               </Btn>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
                 <Btn icon="series" onClick={() => go('career')}>
