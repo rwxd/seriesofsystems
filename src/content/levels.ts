@@ -44,7 +44,7 @@ function topology(nodes: TopologyNode[], links: TopologyLink[]): Topology {
   return { nodes, links };
 }
 
-const dnsNode = (world: World, x = 430, y = 50, config: NodeConfig = {}): TopologyNode =>
+const dnsNode = (world: World, x = 430, y = -40, config: NodeConfig = {}): TopologyNode =>
   makeNode(world, 'dns', 'dns', 'Edge DNS', {}, x, y, config);
 
 const lbNode = (
@@ -115,7 +115,7 @@ export const CAMPAIGN_LEVELS: Scenario[] = [
     world: US_EAST,
     initialTopology: topology(
       [
-        dnsNode(US_EAST, 430, 50),
+        dnsNode(US_EAST, 430, -40),
         lbNode(US_EAST, 'lb', 'Public load balancer', 'us-east', 430, 170, SLOPPY_HEALTH_CHECKS),
         vmNode(US_EAST, 'app-1', 'App A', 'us-east', 'us-east-a', 300, 340),
         dbNode(US_EAST, 'db', 'Primary database', 'us-east', 430, 500, {
@@ -184,7 +184,7 @@ export const CAMPAIGN_LEVELS: Scenario[] = [
     world: US_EAST,
     initialTopology: topology(
       [
-        dnsNode(US_EAST, 430, 50),
+        dnsNode(US_EAST, 430, -40),
         lbNode(US_EAST, 'lb', 'Public load balancer', 'us-east', 430, 170, TUNED_HEALTH_CHECKS),
         vmNode(US_EAST, 'app-1', 'App A', 'us-east', 'us-east-a', 290, 340),
         vmNode(US_EAST, 'app-2', 'App B', 'us-east', 'us-east-b', 570, 340),
@@ -260,7 +260,7 @@ export const CAMPAIGN_LEVELS: Scenario[] = [
     world: US_EAST,
     initialTopology: topology(
       [
-        dnsNode(US_EAST, 430, 50),
+        dnsNode(US_EAST, 430, -40),
         lbNode(US_EAST, 'lb', 'Public load balancer', 'us-east', 430, 170, TUNED_HEALTH_CHECKS),
         vmNode(US_EAST, 'app-1', 'App A', 'us-east', 'us-east-a', 290, 340),
         vmNode(US_EAST, 'app-2', 'App B', 'us-east', 'us-east-b', 570, 340),
@@ -345,7 +345,7 @@ export const CAMPAIGN_LEVELS: Scenario[] = [
     world: US_EAST,
     initialTopology: topology(
       [
-        dnsNode(US_EAST, 430, 50),
+        dnsNode(US_EAST, 430, -40),
         lbNode(US_EAST, 'lb', 'Public load balancer', 'us-east', 430, 170, TUNED_HEALTH_CHECKS),
         makeNode(US_EAST, 'k8s', 'app-cluster', 'App cluster', { regionId: 'us-east' }, 430, 340, {
           nodeCount: 3,
@@ -443,8 +443,8 @@ export const CAMPAIGN_LEVELS: Scenario[] = [
     world: US_EAST,
     initialTopology: topology(
       [
-        dnsNode(US_EAST, 300, 50),
-        makeNode(US_EAST, 'cdn', 'cdn', 'Edge CDN', {}, 620, 50, {
+        dnsNode(US_EAST, 300, -40),
+        makeNode(US_EAST, 'cdn', 'cdn', 'Edge CDN', {}, 620, -40, {
           ttlSeconds: 60,
           cacheablePct: 70,
           originShield: false,
@@ -544,7 +544,7 @@ export const CAMPAIGN_LEVELS: Scenario[] = [
     world: US_EAST,
     initialTopology: topology(
       [
-        dnsNode(US_EAST, 430, 50),
+        dnsNode(US_EAST, 430, -40),
         lbNode(US_EAST, 'lb', 'Public load balancer', 'us-east', 430, 170, TUNED_HEALTH_CHECKS),
         makeNode(US_EAST, 'proxy', 'nginx', 'Edge proxy', { regionId: 'us-east', zoneId: 'us-east-a' }, 430, 255, {
           connectTimeoutMs: 500,
@@ -637,7 +637,7 @@ export const CAMPAIGN_LEVELS: Scenario[] = [
     world: US_AND_EU,
     initialTopology: topology(
       [
-        dnsNode(US_AND_EU, 470, 50, { ttlSeconds: 60, routing: 'failover', healthChecks: true }),
+        dnsNode(US_AND_EU, 470, -40, { ttlSeconds: 60, routing: 'failover', healthChecks: true }),
         lbNode(US_AND_EU, 'lb', 'US load balancer', 'us-east', 430, 170, TUNED_HEALTH_CHECKS),
         vmNode(US_AND_EU, 'app-1', 'US App A', 'us-east', 'us-east-a', 290, 340),
         vmNode(US_AND_EU, 'app-2', 'US App B', 'us-east', 'us-east-b', 570, 340),

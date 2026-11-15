@@ -528,6 +528,20 @@ function buildRootCause(
         5,
       ) * cfgNumber(lb, 'unhealthyThreshold', 3)}s before ejecting it. Detection, not capacity, was the outage.`;
     }
+    if (outside.length > 0) {
+      const survivors = outside.map((node) => node.name).join(', ');
+      const detection = lb
+        ? cfgNumber(lb, 'healthCheckInterval', 5) * cfgNumber(lb, 'unhealthyThreshold', 3)
+        : 0;
+      return `A zone failure took ${vms
+        .filter((node) => node.zoneId === failedZone)
+        .map((node) => node.name)
+        .join(', ')} offline, but ${survivors} kept serving from another zone. ${
+        lb
+          ? `${nodeLabel(lb)} ejected the dead backend in about ${formatSeconds(detection)}, so the blast radius stopped at the zone boundary.`
+          : 'The surviving backend carried the traffic.'
+      } This is redundancy doing its job.`;
+    }
   }
 
   if (incidentKinds.has('region-down')) {
@@ -749,9 +763,30 @@ export function buildPostmortem(
   }
 
   const actionItems: string[] = [];
-  for (const cause of causes) {
-    if (!actionItems.includes(cause.action)) actionItems.push(cause.action);
-    if (actionItems.length >= 4) break;
+  if (score.outcome === 'success' && score.stars >= 2 && snapshot.dataLossEvents === 0) {
+    const compute = topology.nodes.filter((node) => node.kind === 'vm' || node.kind === 'k8s');
+    const db = topology.nodes.find((node) => node.kind === 'db');
+    const cache = topology.nodes.find((node) => node.kind === 'cache');
+    if (compute.length >= 2) {
+      actionItems.push(
+        `Keep at least two compute replicas in separate zones, and keep the load balancer's detection window under 10 seconds.`,
+      );
+    }
+    if (db && (cfgBool(db, 'multiAz', false) || cfgNumber(db, 'replicas', 0) > 0)) {
+      actionItems.push(`Keep ${nodeLabel(db)} redundant and rehearse promotion before the next real failure.`);
+    }
+    if (cache && cfgBool(cache, 'stampedeProtection', true)) {
+      actionItems.push(`Keep stampede protection on ${nodeLabel(cache)}; the cold-cache drill is what proved it.`);
+    }
+    actionItems.push(
+      `Alert on p95 above ${Math.max(200, Math.round(snapshot.p95 * 3))} ms and on error-budget burn before ${scenario.customer} emails.`,
+    );
+    actionItems.push('Schedule a game day for the same failure domain, so the next surprise is a rehearsal.');
+  } else {
+    for (const cause of causes) {
+      if (!actionItems.includes(cause.action)) actionItems.push(cause.action);
+      if (actionItems.length >= 4) break;
+    }
   }
   if (actionItems.length < 2) {
     actionItems.push(`Add an error-rate and p95 alert that fires before ${scenario.customer} emails.`);
