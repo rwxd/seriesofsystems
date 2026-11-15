@@ -95,7 +95,7 @@ export interface UiState {
 export interface Toast {
   id: number;
   message: string;
-  tone: 'info' | 'success' | 'error';
+  tone: 'info' | 'success' | 'danger' | 'warning';
 }
 
 export type NodePatch = Partial<Pick<TopologyNode, 'name' | 'cloudId' | 'regionId' | 'zoneId'>> & {
@@ -163,7 +163,7 @@ export interface GameStore {
   advance: (dt: number) => void;
   refreshSnapshot: () => void;
   pushEvent: (event: GameEvent) => void;
-  notify: (message: string, tone?: Toast['tone']) => void;
+  notify: (message: string, tone?: Toast['tone'] | 'error') => void;
   dismissToast: () => void;
   saveProfile: () => void;
   setSetting: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
@@ -688,7 +688,10 @@ export const useGame = create<GameStore>()((set, get) => {
       const sim = get().sim;
       if (!sim) return;
       const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-      if (now - lastSnapshotAt >= 80 || sim.ended) {
+      // A critical incident auto-pauses the run from inside `tick()`. Force a
+      // fresh snapshot in that case so the pager modal sees the active incident
+      // instead of the previous, pre-incident frame.
+      if (now - lastSnapshotAt >= 80 || sim.ended || get().phase !== 'running') {
         lastSnapshotAt = now;
         set({ snapshot: sim.snapshot(), traces: sim.traces() });
       }
@@ -714,7 +717,8 @@ export const useGame = create<GameStore>()((set, get) => {
     },
 
     notify: (message, tone = 'info') => {
-      set({ toast: { id: ++toastSeq, message, tone } });
+      const normalized = tone === 'error' ? 'danger' : tone;
+      set({ toast: { id: ++toastSeq, message, tone: normalized } });
     },
     dismissToast: () => set({ toast: null }),
     saveProfile: () => saveProfile(get().profile),
