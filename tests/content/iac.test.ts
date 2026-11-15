@@ -529,4 +529,71 @@ describe('yamlDiffSummary', () => {
   it('is empty for identical topologies', () => {
     expect(yamlDiffSummary(baseTopology(), baseTopology())).toEqual([]);
   });
+
+  it('round-trips the WAF and security fields', () => {
+    const topology: Topology = {
+      nodes: [
+        { id: 'dns', kind: 'dns', name: 'DNS', config: { ttlSeconds: 60 }, x: 80, y: 40 },
+        {
+          id: 'waf',
+          kind: 'waf',
+          name: 'WAF',
+          config: { mode: 'block', ruleset: 'owasp', rateLimitRps: 500, botProtection: true },
+          x: 80,
+          y: 160,
+        },
+        {
+          id: 'lb',
+          kind: 'lb',
+          name: 'LB',
+          regionId: 'us-east',
+          cloudId: 'cumulus',
+          config: { algorithm: 'least-conn', tls: true, tlsAutoRenew: true },
+          x: 80,
+          y: 280,
+        },
+        {
+          id: 'app',
+          kind: 'vm',
+          name: 'App',
+          regionId: 'us-east',
+          zoneId: 'us-east-a',
+          cloudId: 'cumulus',
+          config: { size: 'small', secrets: 'vault', patching: 'auto' },
+          x: 80,
+          y: 400,
+        },
+        {
+          id: 'db',
+          kind: 'db',
+          name: 'DB',
+          regionId: 'us-east',
+          cloudId: 'cumulus',
+          config: { publicAccess: false, encryption: true, backups: true },
+          x: 80,
+          y: 520,
+        },
+      ],
+      links: [
+        { id: 'a', from: 'dns', to: 'waf' },
+        { id: 'b', from: 'waf', to: 'lb' },
+        { id: 'c', from: 'lb', to: 'app' },
+        { id: 'd', from: 'app', to: 'db' },
+      ],
+    };
+
+    const result = parseTopologyYaml(topologyToYaml(topology, world), world, topology);
+    expect(result.errors).toEqual([]);
+    expect(result.topology).toBeDefined();
+    const waf = result.topology!.nodes.find((node) => node.id === 'waf')!;
+    expect(waf.kind).toBe('waf');
+    expect(waf.config.mode).toBe('block');
+    expect(waf.config.rateLimitRps).toBe(500);
+    const db = result.topology!.nodes.find((node) => node.id === 'db')!;
+    expect(db.config.encryption).toBe(true);
+    expect(db.config.backups).toBe(true);
+    const app = result.topology!.nodes.find((node) => node.id === 'app')!;
+    expect(app.config.patching).toBe('auto');
+    expect(app.config.secrets).toBe('vault');
+  });
 });

@@ -81,7 +81,7 @@ export function nextCampaignLevel(currentId: string | undefined): Scenario | nul
 
 /** "Unlocks after “Two Is One”" — falls back to a generic hint. */
 export function unlockHintFor(kind: ComponentKind): string {
-  if (kind === 'waf') return 'Available in the Zero Day scenario and Sandbox';
+  if (kind === 'waf') return 'Available in Zero Day, The Leak and Sandbox';
   const unlocker = CAMPAIGN_LEVELS.find((level) => level.unlockOnComplete?.includes(kind));
   if (!unlocker) return 'Unlocks later in the campaign';
   return `Unlocks after “${unlocker.title}”`;

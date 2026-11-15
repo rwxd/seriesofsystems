@@ -624,6 +624,22 @@ function buildRootCause(
     }
   }
 
+  if (incidentKinds.has('node-crash')) {
+    const crash = scenario.incidents.find(
+      (incident) => incident.kind === 'node-crash' && incident.at <= snapshot.time,
+    );
+    const target = crash?.targetId ? topology.nodes.find((node) => node.id === crash.targetId) : undefined;
+    const compute = [...vms, ...k8s];
+    if (compute.length <= 1) {
+      return `${target ? nodeLabel(target) : 'The only compute node'} crashed, and there was no second instance to absorb the request path. ${
+        snapshot.errorSeconds <= 5
+          ? 'The restart runbook brought it back inside the error budget, but one machine is still one failure domain.'
+          : 'Without a redundant instance, recovery depended on a manual restart while the error budget burned.'
+      }`;
+    }
+    return `A single node crash took ${target ? nodeLabel(target) : 'one backend'} out of rotation, but the remaining compute tier carried the traffic. This is the difference between a node failure and an outage.`;
+  }
+
   if (incidentKinds.has('credential-leak')) {
     const publicDb = dbs.find((node) => cfgBool(node, 'publicAccess', false));
     const plainSecrets = vms.find((node) => cfgString(node, 'secrets', 'env') === 'plain');
@@ -633,6 +649,7 @@ function buildRootCause(
     if (plainSecrets) {
       return `${nodeLabel(plainSecrets)} kept credentials in plain config, where a crash dump or a log line could hand them to anyone reading the host.`;
     }
+    return 'The leaked credential had a narrow blast radius: the data tier was private and the secrets were vaulted, so there was nothing useful to use.';
   }
 
   if (incidentKinds.has('vulnerability')) {
@@ -646,6 +663,7 @@ function buildRootCause(
         'manual',
       )}. The advisory was public; the patch window was not.`;
     }
+    return 'Automatic patching closed the vulnerability before it became an outage. The boring configuration was the security control.';
   }
 
   if (incidentKinds.has('brute-force')) {
@@ -657,6 +675,7 @@ function buildRootCause(
     if (waf && cfgString(waf, 'mode', 'block') !== 'block') {
       return `${nodeLabel(waf)} was in monitor mode, so the attack was logged and then forwarded to the origin anyway.`;
     }
+    return 'The WAF and rate limit absorbed the credential stuffing before it reached the app. The botnet got 429s and a log line.';
   }
 
   if ((incidentKinds.has('traffic-spike') || incidentKinds.has('ddos')) && proxies.length > 0) {
@@ -884,12 +903,25 @@ export function buildPostmortem(
       actionItems.push(
         `Keep at least two compute replicas in separate zones, and keep the load balancer's detection window under 10 seconds.`,
       );
+    } else {
+      actionItems.push(
+        'Put a second compute replica in another zone behind a load balancer; one box is still one failure domain.',
+      );
     }
     if (db && (cfgBool(db, 'multiAz', false) || cfgNumber(db, 'replicas', 0) > 0)) {
       actionItems.push(`Keep ${nodeLabel(db)} redundant and rehearse promotion before the next real failure.`);
     }
     if (cache && cfgBool(cache, 'stampedeProtection', true)) {
       actionItems.push(`Keep stampede protection on ${nodeLabel(cache)}; the cold-cache drill is what proved it.`);
+    }
+    if (
+      scenario.incidents.some((incident) =>
+        ['credential-leak', 'vulnerability', 'brute-force', 'ddos', 'cert-expiry'].includes(incident.kind),
+      )
+    ) {
+      actionItems.push(
+        'Keep the WAF in block mode, rate limits configured, secrets vaulted, databases private and encrypted, and automatic patching on.',
+      );
     }
     actionItems.push(
       `Alert on p95 above ${Math.max(200, Math.round(snapshot.p95 * 3))} ms and on error-budget burn before ${scenario.customer} emails.`,
