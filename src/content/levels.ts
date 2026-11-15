@@ -535,10 +535,10 @@ export const CAMPAIGN_LEVELS: Scenario[] = [
     subtitle: 'A retry is a request that has not learned anything.',
     customer: 'Ines Duarte, SRE Lead, Kettle & Co. (grocery delivery, dinner-dependent)',
     brief:
-      'One slow backend turned into a site-wide outage because our nginx retries every failure three times with no budget, and the app timeout is three seconds so every request sits in the queue waiting to fail. When the backend gets slow, we multiply the load by four and call it resilience. Fix the timeouts, cap the retries, and put a rate limit in front of the origin.',
+      'One slow backend turned into a site-wide outage because our nginx retries every failure three times with no budget, our app gives up after three seconds, and nginx then waits thirty seconds for an answer that is never coming. When the backend gets slow, we multiply the load by four and call it resilience. Fix the timeouts, cap the retries, and put a rate limit in front of the origin.',
     hints: [
       'Three retries with no budget is four times the traffic at the exact worst moment.',
-      'A 3-second read timeout holds a worker for 3 seconds. Shorten it or the queue becomes the outage.',
+      'nginx will wait 30 seconds for a backend that already gave up after three. Shorten the read timeout.',
       'Rate limiting protects the origin. It does not make you popular, but it keeps the lights on.',
     ],
     world: US_EAST,
@@ -555,8 +555,8 @@ export const CAMPAIGN_LEVELS: Scenario[] = [
           workerConnections: 1024,
           buffering: true,
         }),
-        vmNode(US_EAST, 'app-1', 'App A', 'us-east', 'us-east-a', 290, 340, { timeoutMs: 10000 }),
-        vmNode(US_EAST, 'app-2', 'App B', 'us-east', 'us-east-b', 570, 340, { timeoutMs: 10000 }),
+        vmNode(US_EAST, 'app-1', 'App A', 'us-east', 'us-east-a', 290, 340, { timeoutMs: 3000 }),
+        vmNode(US_EAST, 'app-2', 'App B', 'us-east', 'us-east-b', 570, 340, { timeoutMs: 3000 }),
         dbNode(US_EAST, 'db', 'Primary database', 'us-east', 430, 500, {
           size: 'small',
           replicas: 0,
@@ -708,4 +708,3 @@ export function nextLevel(id: string): Scenario | undefined {
 }
 
 export { TUNED_HEALTH_CHECKS };
-export type { TrafficPoint };
