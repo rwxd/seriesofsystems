@@ -96,12 +96,12 @@ function link(from: string, to: string): TopologyLink {
 
 function starterTopology(): Topology {
   const nodes: TopologyNode[] = [
-    makeNode('dns', 'dns', 'Edge DNS', {}, 470, 50, {
+    makeNode('dns', 'dns', 'Edge DNS', {}, 470, -40, {
       ttlSeconds: 60,
       routing: 'failover',
       healthChecks: true,
     }),
-    makeNode('cdn', 'cdn', 'Edge CDN', {}, 760, 50, {
+    makeNode('cdn', 'cdn', 'Edge CDN', {}, 760, -40, {
       ttlSeconds: 300,
       cacheablePct: 70,
       originShield: false,
