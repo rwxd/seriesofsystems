@@ -28,6 +28,43 @@ npm run dev
 
 Open http://localhost:5173.
 
+## Container image
+
+The game is a static site served by nginx. Public multi-architecture images are
+published to the Forgejo registry:
+
+```bash
+docker run --rm -p 8080:80 \
+  git.chaops.de/seriesofsystems/seriesofsystems:latest
+```
+
+Open http://localhost:8080. Tags include `latest`, `main`, release versions such
+as `v1.2.3`, the major channel (`v1`), and `sha-<commit>`.
+
+To build the release image locally:
+
+```bash
+npm run build
+docker build -f Dockerfile.release -t series-of-systems .
+```
+
+`Dockerfile` is the self-contained local development image; `Dockerfile.release`
+expects a prebuilt `dist/` and is what the release workflow uses for both
+architectures.
+
+## Releases and CI
+
+CI and releases run on Forgejo Actions, not GitHub Actions:
+
+- `.forgejo/workflows/build.yaml` — typecheck/tests, multi-arch image build,
+  registry push, image pruning, and semantic-release.
+- `.forgejo/workflows/prune.yaml` — daily pruning of old `sha-*` and per-arch
+  image tags.
+- `.releaserc.yml` — Conventional Commits releases on `main`.
+
+The GitHub repository is a read-only push mirror. It contains `.forgejo/` for
+reference but does not run GitHub Actions.
+
 ## What is in the game
 
 - **Seven campaign shifts** plus an endless sandbox:

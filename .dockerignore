@@ -1,0 +1,10 @@
+.git
+.gitignore
+.forgejo
+.github
+node_modules
+coverage
+.env
+.env.*
+*.log
+.DS_Store

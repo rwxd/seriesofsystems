@@ -1,0 +1,25 @@
+name: Prune container images
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+env:
+  OWNER: seriesofsystems
+  IMAGE: seriesofsystems
+  RETENTION_DAYS: "14"
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: https://github.com/actions/checkout@v4
+      - name: Prune old image tags
+        run: ./scripts/prune-forgejo-packages.sh
+        env:
+          FORGEJO_URL: ${{ github.server_url }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+          OWNER: ${{ env.OWNER }}
+          IMAGE: ${{ env.IMAGE }}
+          RETENTION_DAYS: ${{ env.RETENTION_DAYS }}
