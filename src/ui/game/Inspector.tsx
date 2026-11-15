@@ -1,6 +1,7 @@
 import { useEffect, useId, useState } from 'react';
 import { useGame } from '@/game/store';
 import { COMPONENT_SPECS } from '@/sim/catalog';
+import { securityFindings } from '@/sim/security';
 import type { ConfigField, TopologyNode, World } from '@/sim/types';
 import { Btn, EmptyState, Pill } from '@/ui/components/ui';
 import { Icon, iconForKind } from '@/ui/components/Icon';
@@ -176,6 +177,9 @@ function NodeInspector({
   const rps = metrics?.rps ?? 0;
   const cost = spec.costPerMonth(node, world, rps);
   const storeIssues = useGame((state) => state.issues);
+  const security = securityFindings(draft ?? { nodes: topologyNodes, links: [] }).filter(
+    (finding) => finding.nodeId === node.id,
+  );
   const issues = [
     ...new Set([
       ...(spec.validate?.(node, draft ?? { nodes: topologyNodes, links: [] }, world) ?? []),
@@ -334,6 +338,41 @@ function NodeInspector({
                       <div className="issue" key={issue}>
                         <Icon name="alert" size={12} />
                         <span>{issue}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="section">
+                <div className="section__title">
+                  <Icon name="waf" size={11} /> Security
+                </div>
+                {security.length === 0 ? (
+                  <div className="cost-line" style={{ background: 'var(--mint-soft)', borderColor: '#a7e3cd' }}>
+                    <span className="row" style={{ gap: 6, color: '#0a6448' }}>
+                      <Icon name="check-circle" size={13} /> No security findings for this component
+                    </span>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gap: 5 }}>
+                    {security.map((finding) => (
+                      <div className={`security-finding security-finding--${finding.severity}`} key={finding.id}>
+                        <Icon
+                          name={
+                            finding.severity === 'critical'
+                              ? 'alert'
+                              : finding.severity === 'warning'
+                                ? 'warning'
+                                : 'info'
+                          }
+                          size={13}
+                        />
+                        <div>
+                          <strong>{finding.title}</strong>
+                          <p>{finding.detail}</p>
+                          <span className="security-finding__action">Fix: {finding.action}</span>
+                        </div>
                       </div>
                     ))}
                   </div>
