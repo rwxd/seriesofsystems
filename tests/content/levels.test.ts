@@ -234,6 +234,8 @@ describe('campaign level order', () => {
     expect(getLevel('one-is-none')?.title).toBe('One Is None');
     expect(getLevel('nope')).toBeUndefined();
     expect(nextLevel('one-is-none')?.id).toBe('two-is-one');
+    expect(nextLevel('the-split-brain')?.id).toBe('pets-and-cattle');
+    expect(nextLevel('cache-rules-everything')?.id).toBe('retry-harder');
     expect(nextLevel('cloudy-with-a-chance-of-outage')).toBeUndefined();
     expect(nextLevel('nope')).toBeUndefined();
   });

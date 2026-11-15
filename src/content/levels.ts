@@ -702,9 +702,10 @@ export function getLevel(id: string): Scenario | undefined {
 }
 
 export function nextLevel(id: string): Scenario | undefined {
-  const current = getLevel(id);
-  if (!current) return undefined;
-  return CAMPAIGN_LEVELS.find((level) => level.order === current.order + 1);
+  const ordered = [...CAMPAIGN_LEVELS].sort((a, b) => a.act - b.act || a.order - b.order);
+  const index = ordered.findIndex((level) => level.id === id);
+  if (index < 0) return undefined;
+  return ordered[index + 1];
 }
 
 export { TUNED_HEALTH_CHECKS };
