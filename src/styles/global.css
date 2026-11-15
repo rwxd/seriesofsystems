@@ -1,0 +1,32 @@
+:root {
+  color-scheme: light;
+  font-family: "Nunito", ui-rounded, "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: #0e1b2b;
+  color: #17212e;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+}
+
+.boot {
+  display: grid;
+  min-height: 100%;
+  place-items: center;
+  color: #f7f3e8;
+  font-size: 2rem;
+  letter-spacing: 0.02em;
+}
