@@ -21,7 +21,7 @@ pager.
 
 ## Play
 
-Hosted: **https://seriesofsystems.wrage.eu** (single-player, no accounts).
+Hosted: **https://seriesofsystems.chaops.de** (single-player, no accounts).
 
 Locally:
 
