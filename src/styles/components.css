@@ -788,12 +788,14 @@
 
 .toast-stack {
   position: fixed;
-  right: 18px;
+  left: 50%;
   bottom: 18px;
+  transform: translateX(-50%);
   z-index: var(--z-toast);
   display: grid;
   gap: 8px;
-  max-width: 360px;
+  width: max-content;
+  max-width: min(440px, calc(100% - 32px));
   transition: bottom var(--dur-2) var(--ease-out);
 }
 

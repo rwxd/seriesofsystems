@@ -3,6 +3,7 @@ import type { GameEvent } from '@/sim/types';
 import { Btn, Modal, StarRow } from '@/ui/components/ui';
 import { Icon } from '@/ui/components/Icon';
 import { fmtAvail, fmtClock, fmtMoney, fmtMs, fmtNum, shortName } from '@/ui/lib/format';
+import { nextCampaignLevel } from '@/ui/lib/campaign';
 
 export function PostmortemModal() {
   const open = useGame((state) => state.ui.postmortemOpen);
@@ -15,6 +16,7 @@ export function PostmortemModal() {
 
   if (!postmortem || !scenario) return null;
   const success = postmortem.outcome === 'success';
+  const next = nextCampaignLevel(scenario.sandbox ? undefined : postmortem.levelId);
 
   return (
     <Modal
@@ -34,8 +36,12 @@ export function PostmortemModal() {
           <Btn icon="reset" onClick={() => retry()}>
             Retry shift
           </Btn>
-          <Btn variant="primary" icon="arrow-right" onClick={() => nextLevel()}>
-            Next shift
+          <Btn
+            variant="primary"
+            icon={next && !scenario.sandbox ? 'arrow-right' : 'arrow-left'}
+            onClick={() => nextLevel()}
+          >
+            {next && !scenario.sandbox ? 'Next shift' : 'Campaign map'}
           </Btn>
         </>
       }

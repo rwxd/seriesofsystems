@@ -58,7 +58,7 @@ export function HowToContent({ compact = false }: { compact?: boolean }) {
       {!compact && (
         <section className="howto__section">
           <div className="howto__copy">
-            <h2>The loop: draft, deploy, page, fix</h2>
+            <h2>Draft, deploy, get paged, fix</h2>
             <p>
               Nothing you edit takes effect immediately. Changes land in a <strong>draft</strong>{' '}
               topology, the run pauses, and a deploy banner appears. Press Deploy when you are ready
