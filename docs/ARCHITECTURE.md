@@ -105,7 +105,8 @@ Routing by component kind:
 - `lb`: pick a backend by algorithm, skipping ejected/down backends. No healthy
   backend → 503. Keep per-backend in-flight counts for least-conn.
 - `proxy`: enforce `rateLimitRps` (excess = 429), `workerConnections` capacity,
-  timeouts; forward to one backend.
+  and read timeouts; balance across upstreams with `algorithm` (`round-robin` or
+  `least-conn`), skipping down/drained backends, then forward to one backend.
 - `vm`: serve the app. If the scenario requires a database and this VM has no
   path to a db, fail 500 with a clear issue. If a cache is connected, consult it
   (cache hit ratio from cache spec); on hit complete, on miss go to db. If a db
@@ -248,9 +249,11 @@ Use stable node IDs; incidents target them.
 5. **Cache Rules Everything** (Act 2) — CDN+cache. Initial: dns→cdn→lb→2 VMs
    + cache→db. Incidents: traffic spike 3× at 120 s, `cache-stampede` at 240 s.
    Objectives: p95 ≤ 250 ms, ≤15 error seconds, ≤ $1500/mo.
-6. **Retry Harder** (Act 3) — `node-slow` at 120 s (60 s), traffic spike at
-   240 s. Player tunes timeouts, retry budget, rate limits. Objectives:
-   p95 ≤ 400 ms, ≤25 error seconds.
+6. **Retry Harder** (Act 3) — nginx starts on round-robin with 3 retries and no
+   retry budget, while `node-slow` makes App A ~20× slower at 120 s (60 s). The
+   traffic spike lands at 240 s. Player switches upstream balancing to least-conn
+   (or sizes the slow backend), shortens timeouts, caps retries, or rate limits.
+   Objectives: p95 ≤ 400 ms, ≤25 error seconds.
 7. **Cloudy with a Chance of Outage** (Act 3) — multi-region. Initial: us-east
    stack + eu-west region available. Player adds eu-west LB/VMs/DB replica and
    wires DNS failover. Incident: `region-down us-east` at 180 s for 120 s.
