@@ -314,7 +314,7 @@ export const CAMPAIGN_LEVELS: Scenario[] = [
       },
     ],
     objectives: {
-      maxErrorSeconds: 50,
+      maxErrorSeconds: 70,
       noDataLoss: true,
     },
     seed: 3303,
@@ -707,5 +707,8 @@ export function nextLevel(id: string): Scenario | undefined {
   if (index < 0) return undefined;
   return ordered[index + 1];
 }
+
+/** Backwards-compatible alias used by the UI campaign metadata layer. */
+export const LEVELS = CAMPAIGN_LEVELS;
 
 export { TUNED_HEALTH_CHECKS };
