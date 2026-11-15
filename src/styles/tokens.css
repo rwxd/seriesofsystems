@@ -1,0 +1,151 @@
+/* ============================================================
+   Series of Systems — design tokens
+   Direction: cartoon schematic. Warm paper, deep ink outlines,
+   blueprint canvas, signal orange, mint success.
+   ============================================================ */
+
+:root {
+  color-scheme: light;
+
+  /* ---- Paper & ink ---- */
+  --paper: #f3e8d2;
+  --paper-2: #fdf7ea;
+  --paper-3: #efe2c8;
+  --paper-4: #e7d9bc;
+  --paper-sunk: #ded0b2;
+  --ink: #17212b;
+  --ink-2: #26323f;
+  --ink-3: #3c4a58;
+  --ink-soft: #5c6b79;
+  --ink-faint: #92a0ac;
+
+  /* ---- Blueprint ---- */
+  --bp: #153657;
+  --bp-2: #0f2a44;
+  --bp-3: #1e4870;
+  --bp-4: #2a5a86;
+  --bp-line: rgba(198, 227, 255, 0.085);
+  --bp-line-strong: rgba(198, 227, 255, 0.19);
+  --bp-ink: #e9f2ff;
+  --bp-muted: rgba(233, 242, 255, 0.6);
+
+  /* ---- Signals ---- */
+  --orange: #f4703a;
+  --orange-2: #d9511e;
+  --orange-soft: #ffd8c4;
+  --amber: #f2a63b;
+  --amber-soft: #ffe8bd;
+  --mint: #43d6a4;
+  --mint-2: #16a578;
+  --mint-soft: #ccf7e7;
+  --red: #e5484d;
+  --red-2: #b52e37;
+  --red-soft: #ffd7d8;
+  --sky: #5cb8ea;
+  --sky-soft: #d3edfb;
+  --violet: #9b8cf5;
+  --lime: #c6dd58;
+
+  /* ---- Semantic surfaces ---- */
+  --bg: var(--paper);
+  --surface: var(--paper-2);
+  --surface-2: var(--paper-3);
+  --line: var(--ink);
+  --line-soft: rgba(23, 33, 43, 0.18);
+  --focus: #ff8a3d;
+  --shadow-ink: rgba(13, 24, 35, 0.55);
+
+  /* ---- Type ---- */
+  --font-display: "Bricolage Grotesque", "Avenir Next", "Futura", "Gill Sans", "Trebuchet MS", ui-rounded, system-ui, sans-serif;
+  --font-body: "Nunito", "Avenir Next", ui-rounded, "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, "DejaVu Sans Mono", monospace;
+
+  --fs-2xs: 9.5px;
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-base: 13.5px;
+  --fs-md: 15px;
+  --fs-lg: 18px;
+  --fs-xl: 22px;
+  --fs-2xl: 28px;
+  --fs-3xl: 36px;
+  --fs-4xl: 48px;
+  --fs-5xl: 64px;
+
+  /* ---- Space ---- */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-7: 32px;
+  --s-8: 40px;
+  --s-9: 56px;
+  --s-10: 72px;
+
+  /* ---- Radii ---- */
+  --r-xs: 5px;
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 22px;
+  --r-2xl: 30px;
+  --r-pill: 999px;
+
+  /* ---- Cartoon outlines & shadows ---- */
+  --stroke: 2px;
+  --stroke-thick: 3px;
+  --pop-1: 2px 2px 0 var(--ink);
+  --pop-2: 3px 3px 0 var(--ink);
+  --pop-3: 5px 5px 0 var(--ink);
+  --pop-4: 8px 8px 0 rgba(23, 33, 43, 0.9);
+  --lift: 0 18px 34px -22px var(--shadow-ink);
+
+  /* ---- Layout ---- */
+  --topbar-h: 62px;
+  --timeline-h: 104px;
+  --palette-w: 236px;
+  --inspector-w: 336px;
+  --gutter: 12px;
+
+  /* ---- Motion ---- */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --dur-3: 340ms;
+
+  --z-canvas-overlay: 20;
+  --z-palette: 30;
+  --z-modal: 100;
+  --z-toast: 140;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-1: 1ms;
+    --dur-2: 1ms;
+    --dur-3: 1ms;
+  }
+
+  .packet,
+  .node__ring,
+  .pulse-dot,
+  .bell__count {
+    display: none;
+  }
+}
+
+/* Explicit user setting from the Settings screen. */
+html[data-motion="reduced"] {
+  --dur-1: 1ms;
+  --dur-2: 1ms;
+  --dur-3: 1ms;
+}
+
+html[data-motion="reduced"] .packet,
+html[data-motion="reduced"] .node-ring,
+html[data-motion="reduced"] .pulse-dot {
+  display: none;
+}
