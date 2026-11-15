@@ -535,8 +535,9 @@ export const CAMPAIGN_LEVELS: Scenario[] = [
     subtitle: 'A retry is a request that has not learned anything.',
     customer: 'Ines Duarte, SRE Lead, Kettle & Co. (grocery delivery, dinner-dependent)',
     brief:
-      'One slow backend turned into a site-wide outage because our nginx retries every failure three times with no budget, our app gives up after three seconds, and nginx then waits thirty seconds for an answer that is never coming. When the backend gets slow, we multiply the load by four and call it resilience. Fix the timeouts, cap the retries, and put a rate limit in front of the origin.',
+      'One slow backend turned into a site-wide outage because nginx round-robins half the traffic into it, retries every failure three times with no budget, our app gives up after three seconds, and nginx then waits thirty seconds for an answer that is never coming. When the backend gets slow, we multiply the load by four and call it resilience. Fix the timeouts, cap the retries, put a rate limit in front of the origin, and stop treating a sick backend like a healthy one.',
     hints: [
+      'Round-robin sends half your traffic to the slow backend. Least connections notices the queue.',
       'Three retries with no budget is four times the traffic at the exact worst moment.',
       'nginx will wait 30 seconds for a backend that already gave up after three. Shorten the read timeout.',
       'Rate limiting protects the origin. It does not make you popular, but it keeps the lights on.',
@@ -545,7 +546,10 @@ export const CAMPAIGN_LEVELS: Scenario[] = [
     initialTopology: topology(
       [
         dnsNode(US_EAST, 430, -40),
-        lbNode(US_EAST, 'lb', 'Public load balancer', 'us-east', 430, 170, TUNED_HEALTH_CHECKS),
+        lbNode(US_EAST, 'lb', 'Public load balancer', 'us-east', 430, 170, {
+          ...TUNED_HEALTH_CHECKS,
+          algorithm: 'round-robin',
+        }),
         makeNode(US_EAST, 'proxy', 'nginx', 'Edge proxy', { regionId: 'us-east', zoneId: 'us-east-a' }, 430, 255, {
           connectTimeoutMs: 500,
           readTimeoutMs: 30000,
@@ -592,7 +596,7 @@ export const CAMPAIGN_LEVELS: Scenario[] = [
         kind: 'node-slow',
         targetId: 'app-1',
         title: 'App A is thinking about it',
-        message: 'One backend is four times slower and dropping capacity. The retries are already on their way.',
+        message: 'One backend is about twenty times slower and dropping capacity. Round-robin is still sending it half the traffic, and the retries are already on their way.',
         severity: 'warning',
       },
       {

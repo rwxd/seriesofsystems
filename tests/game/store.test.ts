@@ -16,6 +16,22 @@ function runToEnd(): void {
   }
 }
 
+function winLevelOne(): void {
+  useGame.getState().openLevel('one-is-none');
+  useGame.getState().updateNode('lb', { config: TUNED_HEALTH_CHECKS });
+  useGame.getState().addNode('vm', 570, 340, { regionId: 'us-east', zoneId: 'us-east-b' });
+  const app = useGame.getState().draft!.nodes.find(
+    (node) => node.kind === 'vm' && node.zoneId === 'us-east-b',
+  )!;
+  useGame.getState().beginLink('lb');
+  useGame.getState().completeLink(app.id);
+  useGame.getState().beginLink(app.id);
+  useGame.getState().completeLink('db');
+  useGame.getState().deploy();
+  useGame.getState().startRun();
+  runToEnd();
+}
+
 describe('game store integration', () => {
   beforeEach(reset);
 
@@ -31,36 +47,27 @@ describe('game store integration', () => {
   });
 
   it('wins level 1 after adding a second zonal VM and tuning the LB', () => {
-    const game = useGame.getState();
-    game.openLevel('one-is-none');
-    const before = useGame.getState();
-    expect(before.issues.filter((issue) => issue.severity === 'error')).toEqual([]);
-
-    const lb = useGame.getState().draft!.nodes.find((node) => node.id === 'lb')!;
-    expect(lb).toBeTruthy();
-    useGame.getState().updateNode('lb', { config: TUNED_HEALTH_CHECKS });
-    useGame.getState().addNode('vm', 570, 340, { regionId: 'us-east', zoneId: 'us-east-b' });
-    const app = useGame.getState().draft!.nodes.find(
-      (node) => node.kind === 'vm' && node.zoneId === 'us-east-b',
-    )!;
-    expect(app).toBeTruthy();
-
-    useGame.getState().beginLink('lb');
-    useGame.getState().completeLink(app.id);
-    useGame.getState().beginLink(app.id);
-    useGame.getState().completeLink('db');
-
-    const state = useGame.getState();
-    expect(state.issues.filter((issue) => issue.severity === 'error')).toEqual([]);
-    state.deploy();
-    useGame.getState().startRun();
-    runToEnd();
-
+    winLevelOne();
     const ended = useGame.getState();
     expect(ended.postmortem?.outcome).toBe('success');
     expect(ended.postmortem?.metrics.errorSeconds).toBeLessThanOrEqual(10);
     expect(ended.postmortem?.stars).toBeGreaterThanOrEqual(1);
     expect(ended.profile.completed).toContain('one-is-none');
+  });
+
+  it('advances to the next level after a win', () => {
+    winLevelOne();
+    useGame.getState().nextLevel();
+    const next = useGame.getState();
+    expect(next.scenario?.id).toBe('two-is-one');
+    expect(next.phase).toBe('briefing');
+    expect(next.screen).toBe('game');
+  });
+
+  it('refuses to open a locked level', () => {
+    useGame.getState().openLevel('two-is-one');
+    expect(useGame.getState().scenario).toBeNull();
+    expect(useGame.getState().toast?.tone).toBe('danger');
   });
 
   it('blocks a second VM without a database connection', () => {
