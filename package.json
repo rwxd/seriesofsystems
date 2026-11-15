@@ -1,8 +1,7 @@
 {
   "name": "series-of-systems",
   "version": "0.1.0",
-  "description": "",
-  "main": "index.js",
+  "description": "A cartoon browser game about systems engineering: design for failure, survive pager duty, and keep the site up while everything burns.",
   "scripts": {
     "test": "vitest run",
     "dev": "vite",
@@ -12,9 +11,7 @@
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm test && npm run build"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "type": "module",
   "dependencies": {
     "react": "^19.3.1",
@@ -31,5 +28,8 @@
     "vite": "^8.3.8",
     "vitest": "^5.1.0"
   },
-  "private": "true"
+  "private": "true",
+  "engines": {
+    "node": ">=20"
+  }
 }
