@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useGame } from '@/game/store';
 import { COMPONENT_ORDER, COMPONENT_SPECS } from '@/sim/catalog';
 import type { ComponentCategory, ComponentKind } from '@/sim/types';
@@ -20,6 +21,11 @@ export function Palette() {
   const addNode = useGame((state) => state.addNode);
   const togglePanel = useGame((state) => state.togglePanel);
   const paletteOpen = useGame((state) => state.ui.paletteOpen);
+  const [regionId, setRegionId] = useState('');
+
+  useEffect(() => {
+    setRegionId('');
+  }, [scenario?.id]);
 
   if (!scenario) return null;
 
@@ -27,6 +33,7 @@ export function Palette() {
   const topology = draft ?? scenario.initialTopology;
   const selected = topology.nodes.find((node) => node.id === selectedNodeId) ?? null;
   const categories: ComponentCategory[] = ['edge', 'ingress', 'compute', 'data'];
+  const showRegionPicker = scenario.world.regions.length > 1;
 
   return (
     <aside className={`palette${paletteOpen ? ' is-open' : ''}`} aria-label="Component palette">
@@ -39,12 +46,34 @@ export function Palette() {
         <button
           type="button"
           className="btn btn--ghost btn--icon btn--sm only-narrow"
-          onClick={() => togglePanel('palette')}
+          onClick={() => togglePanel('paletteOpen')}
           aria-label="Close palette"
         >
           <Icon name="close" size={15} />
         </button>
       </div>
+
+      {showRegionPicker && (
+        <div className="palette__placement">
+          <label className="palette__placement-label" htmlFor="palette-placement-region">
+            Place in
+          </label>
+          <select
+            id="palette-placement-region"
+            className="select"
+            value={regionId}
+            onChange={(event) => setRegionId(event.target.value)}
+            aria-label="Placement region for new components"
+          >
+            <option value="">Selected region</option>
+            {scenario.world.regions.map((region) => (
+              <option key={region.id} value={region.id}>
+                {region.shortName || region.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className="palette__scroll">
         {categories.map((category) => {
@@ -68,8 +97,15 @@ export function Palette() {
                           : `${spec.label} is locked. ${unlockHintFor(kind)}.`
                       }
                       onClick={() => {
-                        const placement = autoPlacement(kind, spec.scope, scenario.world, topology, selected);
-                        addNode(kind, placement.placement, placement.x, placement.y);
+                        const placement = autoPlacement(
+                          kind,
+                          spec.scope,
+                          scenario.world,
+                          topology,
+                          selected,
+                          regionId || undefined,
+                        );
+                        addNode(kind, placement.x, placement.y, placement.placement);
                       }}
                       aria-label={isUnlocked ? `Add ${spec.label}` : `${spec.label} locked`}
                     >

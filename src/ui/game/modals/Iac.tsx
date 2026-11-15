@@ -28,7 +28,7 @@ export function IacModal() {
       open={open}
       onClose={() => {
         setEditing(false);
-        togglePanel('iac');
+        togglePanel('iacOpen');
       }}
       kicker="Infrastructure as code"
       title="Topology manifest"
@@ -38,7 +38,7 @@ export function IacModal() {
       blueprint={false}
       footer={
         <>
-          <Btn variant="ghost" icon="close" onClick={() => togglePanel('iac')}>
+          <Btn variant="ghost" icon="close" onClick={() => togglePanel('iacOpen')}>
             Close
           </Btn>
           <span className="spacer" />

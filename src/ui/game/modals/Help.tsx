@@ -11,7 +11,7 @@ export function HelpModal() {
   return (
     <Modal
       open={open}
-      onClose={() => togglePanel('help')}
+      onClose={() => togglePanel('helpOpen')}
       kicker="Field manual"
       title="How this works"
       sub="The short version. The long version is on the title screen."
@@ -23,14 +23,14 @@ export function HelpModal() {
             variant="ghost"
             icon="book"
             onClick={() => {
-              togglePanel('help');
+              togglePanel('helpOpen');
               go('howto');
             }}
           >
             Full guide
           </Btn>
           <span className="spacer" />
-          <Btn variant="primary" onClick={() => togglePanel('help')}>
+          <Btn variant="primary" onClick={() => togglePanel('helpOpen')}>
             Back to the shift
           </Btn>
         </>

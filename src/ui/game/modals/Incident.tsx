@@ -79,7 +79,7 @@ export function IncidentModal() {
   return (
     <Modal
       open={open}
-      onClose={() => togglePanel('incident')}
+      onClose={() => togglePanel('incidentOpen')}
       kicker={active ? 'Active incident' : 'Pager history'}
       title={title}
       sub={active ? 'The system is currently unhappy. Pick a response.' : 'Resolved — but the postmortem will remember.'}
@@ -93,7 +93,7 @@ export function IncidentModal() {
               variant="outline"
               onClick={() => {
                 selectNode(targetId);
-                togglePanel('incident');
+                togglePanel('incidentOpen');
               }}
             >
               Jump to {targetName}
@@ -103,15 +103,15 @@ export function IncidentModal() {
               icon="gauge"
               variant="outline"
               onClick={() => {
-                togglePanel('incident');
-                togglePanel('dashboard');
+                togglePanel('incidentOpen');
+                togglePanel('dashboardOpen');
               }}
             >
               View metrics
             </Btn>
           )}
           <span className="spacer" />
-          <Btn variant={active ? 'ink' : 'primary'} onClick={() => togglePanel('incident')}>
+          <Btn variant={active ? 'ink' : 'primary'} onClick={() => togglePanel('incidentOpen')}>
             {active ? 'Back to the fire' : 'Close'}
           </Btn>
         </>

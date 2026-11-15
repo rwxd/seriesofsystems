@@ -83,7 +83,7 @@ export function TitleScreen() {
               <Btn variant="primary" size="lg" icon="play" onClick={() => go('campaign')}>
                 {hasProgress ? 'Continue campaign' : 'Play campaign'}
               </Btn>
-              <Btn size="lg" icon="bolt" onClick={() => togglePanel('sandboxSetup')}>
+              <Btn size="lg" icon="bolt" onClick={() => togglePanel('sandboxSetupOpen')}>
                 Sandbox
               </Btn>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
