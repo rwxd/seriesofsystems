@@ -120,7 +120,7 @@ jobs:
 
       - name: Log in to Forgejo registry
         env:
-          REGISTRY_TOKEN: ${{ github.token }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
         run: printf '%s' "$REGISTRY_TOKEN" | docker login "$REGISTRY" -u "$REGISTRY_USER" --password-stdin
 
       - name: Build and push per-architecture images
