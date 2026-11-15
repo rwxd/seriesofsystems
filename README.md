@@ -11,6 +11,14 @@ in parallel divides it.
 Single-player only. No accounts, no backend, no telemetry, no network calls at
 runtime. Progress is saved in this browser.
 
+## Inspiration
+
+*Series of Systems* is inspired by **Series of Tubes** — [seriesoftub.es](https://seriesoftub.es),
+[github.com/fjaeckel/seriesoftubes](https://github.com/fjaeckel/seriesoftubes) — a free
+cartoon browser game about how the internet really works. This game applies the
+same spirit to systems engineering: requests, queues, failure domains, and the
+pager.
+
 ## Play
 
 ```bash
