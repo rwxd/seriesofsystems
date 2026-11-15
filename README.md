@@ -21,6 +21,10 @@ pager.
 
 ## Play
 
+Hosted: **https://seriesofsystems.wrage.eu** (single-player, no accounts).
+
+Locally:
+
 ```bash
 npm install
 npm run dev
