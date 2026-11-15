@@ -949,15 +949,20 @@ class SimulationEngine implements Simulation {
       const hash = this.hashRequest(request);
       choice = candidates[hash % candidates.length];
     } else {
-      let best = candidates[0];
-      let bestLoad = Number.POSITIVE_INFINITY;
-      for (const candidate of candidates) {
+      // Least connections with rotating tie-breaking: otherwise a brand-new
+      // idle backend can sit at zero forever when every backend is also idle.
+      const start = (rt.roundRobin + 1 + candidates.length) % candidates.length;
+      let best = candidates[start];
+      let bestLoad = best.inFlight + best.queue.size;
+      for (let offset = 1; offset < candidates.length; offset++) {
+        const candidate = candidates[(start + offset) % candidates.length];
         const load = candidate.inFlight + candidate.queue.size;
         if (load < bestLoad) {
           bestLoad = load;
           best = candidate;
         }
       }
+      rt.roundRobin = candidates.indexOf(best);
       choice = best;
     }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { defaultConfig } from '../../src/sim/catalog';
+import { getLevel, TUNED_HEALTH_CHECKS } from '../../src/content/levels';
 import { estimateAvailability } from '../../src/sim/availability';
 import { createSimulation } from '../../src/sim/engine';
 import type {
@@ -148,6 +149,52 @@ function runUntil(sim: Simulation, target: number): void {
     guard += 1;
     if (guard > 100000) throw new Error('runUntil guard exceeded');
   }
+}
+
+/** Mirrors the store: construct, snapshot safely, start, then tick to the end. */
+function simulateToEnd(level: Scenario, topology: Topology): Simulation {
+  const sim = createSimulation(level, topology);
+  const beforeStart = sim.snapshot();
+  expect(beforeStart.time).toBe(0);
+  expect(beforeStart.requests).toBe(0);
+  expect(beforeStart.running).toBe(false);
+
+  sim.start();
+  const justStarted = sim.snapshot();
+  expect(justStarted.running).toBe(true);
+  expect(justStarted.time).toBe(0);
+  expect(justStarted.nodes.dns).toBeDefined();
+
+  let guard = 0;
+  while (!sim.ended && guard < 6000) {
+    sim.tick(0.5);
+    guard += 1;
+  }
+  if (guard >= 6000) throw new Error('simulation did not end');
+  return sim;
+}
+
+/** Level 1 fix: add app-2 in us-east-b and wire lb -> app-2 -> db. */
+function levelOneFixed(level: Scenario, linkDatabase = true): Topology {
+  const topology = structuredClone(level.initialTopology);
+  const lb = topology.nodes.find((node) => node.id === 'lb');
+  if (!lb) throw new Error('level 1 missing lb');
+  lb.config = { ...lb.config, ...TUNED_HEALTH_CHECKS };
+
+  topology.nodes.push({
+    id: 'app-2',
+    kind: 'vm',
+    name: 'App B',
+    cloudId: 'cumulus',
+    regionId: 'us-east',
+    zoneId: 'us-east-b',
+    config: defaultConfig('vm'),
+    x: 570,
+    y: 340,
+  });
+  topology.links.push({ id: 'lb->app-2', from: 'lb', to: 'app-2' });
+  if (linkDatabase) topology.links.push({ id: 'app-2->db', from: 'app-2', to: 'db' });
+  return topology;
 }
 
 describe('simulation engine', () => {
@@ -552,7 +599,6 @@ describe('simulation engine', () => {
 
   it('applies a new topology while running and preserves matching node state', () => {
     const topology = basicTopology();
-    topology.nodes[1].config = { ...topology.nodes[1].config, algorithm: 'round-robin' };
     const sim = start(topology, {
       duration: 40,
       traffic: [{ at: 0, rps: 20 }, { at: 120, rps: 20 }],
@@ -584,6 +630,28 @@ describe('simulation engine', () => {
     const later = sim.snapshot();
     expect(later.nodes['vm-b'].requests).toBeGreaterThan(0);
     expect(later.failures).toBe(before.failures);
+  });
+
+  it('passes the level 1 acceptance scenario from content', () => {
+    const level = getLevel('one-is-none');
+    expect(level).toBeDefined();
+    if (!level) return;
+
+    const broken = simulateToEnd(level, structuredClone(level.initialTopology)).snapshot();
+    expect(broken.errorSeconds).toBeGreaterThan(10);
+    expect(broken.availability).toBeLessThan(0.999);
+
+    const fixed = simulateToEnd(level, levelOneFixed(level)).snapshot();
+    expect(fixed.errorSeconds).toBeLessThanOrEqual(10);
+    expect(fixed.availability).toBeGreaterThan(0.99);
+    expect(fixed.dataLossEvents).toBe(0);
+    expect(fixed.monthlyCost).toBeLessThanOrEqual(600);
+    expect(fixed.p95).toBeLessThanOrEqual(250);
+
+    // requiresDatabase is true: a second VM without a database path must 500.
+    const noDatabase = simulateToEnd(level, levelOneFixed(level, false)).snapshot();
+    expect(noDatabase.errorSeconds).toBeGreaterThan(10);
+    expect(noDatabase.failures).toBeGreaterThan(0);
   });
 
   it('runs a 600s, 200 RPS scenario quickly', () => {
