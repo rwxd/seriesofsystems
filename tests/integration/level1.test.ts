@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { TUNED_HEALTH_CHECKS, getLevel } from '@/content/levels';
+import { buildPostmortem } from '@/content/postmortem';
 import { cloneTopology, createLink, createNode } from '@/game/topology';
 import { createSimulation } from '@/sim/engine';
-import type { Scenario, SimSnapshot, Topology } from '@/sim/types';
+import type { Postmortem, Scenario, SimSnapshot, Topology } from '@/sim/types';
 
 function simulate(level: Scenario, topology: Topology): SimSnapshot {
+  return run(level, topology).snapshot;
+}
+
+function run(level: Scenario, topology: Topology): { snapshot: SimSnapshot; postmortem: Postmortem } {
   const sim = createSimulation(level, topology);
   sim.start();
   let guard = 0;
@@ -12,7 +17,8 @@ function simulate(level: Scenario, topology: Topology): SimSnapshot {
     sim.tick(0.5);
     guard += 1;
   }
-  return sim.snapshot();
+  const snapshot = sim.snapshot();
+  return { snapshot, postmortem: buildPostmortem(level, snapshot, sim.eventLog(), topology) };
 }
 
 function fixedTopology(level: Scenario, linkDatabase = true): Topology {
@@ -34,18 +40,23 @@ describe('level 1 acceptance', () => {
   const level = getLevel('one-is-none')!;
 
   it('fails when the only app VM disappears with its zone', () => {
-    const snapshot = simulate(level, cloneTopology(level.initialTopology));
+    const { snapshot, postmortem } = run(level, cloneTopology(level.initialTopology));
     expect(snapshot.errorSeconds).toBeGreaterThan(10);
     expect(snapshot.availability).toBeLessThan(0.999);
+    expect(postmortem.outcome).toBe('failure');
+    expect(postmortem.rootCause).toMatch(/every VM|shared|single point/i);
   });
 
   it('survives a zone loss with a second VM and tuned health checks', () => {
-    const snapshot = simulate(level, fixedTopology(level));
+    const { snapshot, postmortem } = run(level, fixedTopology(level));
     expect(snapshot.errorSeconds).toBeLessThanOrEqual(10);
     expect(snapshot.availability).toBeGreaterThan(0.99);
     expect(snapshot.dataLossEvents).toBe(0);
     expect(snapshot.monthlyCost).toBeLessThanOrEqual(600);
     expect(snapshot.p95).toBeLessThanOrEqual(250);
+    expect(postmortem.outcome).toBe('success');
+    expect(postmortem.rootCause).toMatch(/kept serving|redundancy|blast radius/i);
+    expect(postmortem.actionItems.join(' ')).toMatch(/two compute replicas/i);
   });
 
   it('does not let a second app VM silently skip the database', () => {
