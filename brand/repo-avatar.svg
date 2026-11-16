@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Series of Systems: one request, three paths">
+  <rect width="512" height="512" fill="#f3e8d2"/>
+  <g transform="translate(242 256) scale(0.9) translate(-256 -256)">
+    <g stroke="#17212b" stroke-width="26" stroke-linecap="round" fill="none">
+      <path d="M186 256h40"/>
+      <path d="M226 256l92-100h30"/>
+      <path d="M226 256h122"/>
+      <path d="M226 256l92 100h30"/>
+    </g>
+    <circle cx="156" cy="256" r="42" fill="#17212b"/>
+    <circle cx="156" cy="256" r="14" fill="#f3e8d2"/>
+    <g stroke="#17212b" stroke-width="11">
+      <circle cx="382" cy="156" r="44" fill="#43d6a4"/>
+      <circle cx="392" cy="256" r="44" fill="#fdf7ea"/>
+      <circle cx="382" cy="356" r="44" fill="#f4703a"/>
+    </g>
+  </g>
+</svg>

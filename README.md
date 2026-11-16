@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="brand/repo-avatar.svg" width="96" height="96" alt="Series of Systems">
+</p>
+
 # Series of Systems
 
 A free cartoon browser game about how systems really work. Design for failure,
